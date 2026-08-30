@@ -3,12 +3,17 @@ package com.jiat.globaltrade.service;
 import com.jiat.globaltrade.entity.CustomsDocument;
 import com.jiat.globaltrade.entity.Shipment;
 import com.jiat.globaltrade.entity.enums.CustomsDocumentStatus;
+import com.jiat.globaltrade.interceptor.BusinessAuditInterceptor;
+import com.jiat.globaltrade.interceptor.BusinessValidationInterceptor;
+import com.jiat.globaltrade.interceptor.PerformanceMonitoringInterceptor;
+import com.jiat.globaltrade.interceptor.TradeComplianceInterceptor;
 import jakarta.ejb.EJB;
 import jakarta.ejb.Stateless;
 import jakarta.ejb.TransactionAttribute;
 import jakarta.ejb.TransactionAttributeType;
 import jakarta.ejb.TransactionManagement;
 import jakarta.ejb.TransactionManagementType;
+import jakarta.interceptor.Interceptors;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import java.time.LocalDateTime;
@@ -18,6 +23,9 @@ import java.util.logging.Logger;
 
 /**
  * Core business service for customs declarations and regulatory compliance documentation.
+ * Demonstrates Class-Level & Method-Level Interceptor Combination:
+ * - Class-level: PerformanceMonitoringInterceptor (times all operations)
+ * - Method-level on mutating operations: BusinessValidationInterceptor, TradeComplianceInterceptor, BusinessAuditInterceptor
  */
 @Stateless
 @TransactionManagement(TransactionManagementType.CONTAINER)
@@ -54,8 +62,19 @@ public class CustomsServiceBean {
 
     /**
      * Creates and persists a customs document linked to a specific shipment.
+     * Demonstrates Intentional Method-Level Interceptor Chaining Order:
+     * 1. BusinessValidationInterceptor (Input parameter validation)
+     * 2. TradeComplianceInterceptor (Regulatory format and compliance checks)
+     * 3. PerformanceMonitoringInterceptor (Execution timing measurement)
+     * 4. BusinessAuditInterceptor (Invocation auditing)
      */
     @TransactionAttribute(TransactionAttributeType.REQUIRED)
+    @Interceptors({
+            BusinessValidationInterceptor.class,
+            TradeComplianceInterceptor.class,
+            PerformanceMonitoringInterceptor.class,
+            BusinessAuditInterceptor.class
+    })
     public CustomsDocument createCustomsDocument(CustomsDocument document, Long shipmentId, String performedBy) {
         if (document == null || shipmentId == null) {
             throw new IllegalArgumentException("Document and shipment ID must not be null.");
@@ -75,8 +94,10 @@ public class CustomsServiceBean {
         }
 
         em.persist(document);
-        LOGGER.log(Level.INFO, "[CustomsServiceBean] [REQUIRED] Created customs document {0} for shipment {1}",
-                new Object[]{document.getDocumentNumber(), shipment.getTrackingNumber()});
+        em.flush(); // Immediately synchronizes with DB and populates generated ID (IDENTITY)
+
+        LOGGER.log(Level.INFO, "[CustomsServiceBean] [REQUIRED] Created customs document #{0} ({1}) for shipment {2}",
+                new Object[]{document.getId(), document.getDocumentNumber(), shipment.getTrackingNumber()});
 
         auditService.logAction("CREATE_CUSTOMS_DOC", "CustomsDocument", document.getId(), performedBy,
                 String.format("Doc: %s, Type: %s, Shipment: %s",
@@ -87,8 +108,19 @@ public class CustomsServiceBean {
 
     /**
      * Updates customs document clearance status.
+     * Demonstrates Intentional Method-Level Interceptor Chaining Order:
+     * 1. BusinessValidationInterceptor
+     * 2. TradeComplianceInterceptor
+     * 3. PerformanceMonitoringInterceptor
+     * 4. BusinessAuditInterceptor
      */
     @TransactionAttribute(TransactionAttributeType.REQUIRED)
+    @Interceptors({
+            BusinessValidationInterceptor.class,
+            TradeComplianceInterceptor.class,
+            PerformanceMonitoringInterceptor.class,
+            BusinessAuditInterceptor.class
+    })
     public CustomsDocument updateDocumentStatus(Long documentId, CustomsDocumentStatus newStatus, String performedBy) {
         if (documentId == null || newStatus == null) {
             throw new IllegalArgumentException("Document ID and status must not be null.");
@@ -104,8 +136,8 @@ public class CustomsServiceBean {
         doc.setStatus(newStatus);
         em.merge(doc);
 
-        LOGGER.log(Level.INFO, "[CustomsServiceBean] [REQUIRED] Customs doc {0} status updated from {1} to {2}",
-                new Object[]{documentId, oldStatus, newStatus});
+        LOGGER.log(Level.INFO, "[CustomsServiceBean] [REQUIRED] Customs doc #{0} ({1}) status updated from {2} to {3}",
+                new Object[]{documentId, doc.getDocumentNumber(), oldStatus, newStatus});
 
         auditService.logAction("UPDATE_CUSTOMS_STATUS", "CustomsDocument", documentId, performedBy,
                 String.format("Status changed from %s to %s", oldStatus, newStatus));

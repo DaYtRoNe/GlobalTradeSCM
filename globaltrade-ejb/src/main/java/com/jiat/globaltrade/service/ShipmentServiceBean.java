@@ -5,12 +5,17 @@ import com.jiat.globaltrade.entity.Shipment;
 import com.jiat.globaltrade.entity.Vendor;
 import com.jiat.globaltrade.entity.enums.ShipmentStatus;
 import com.jiat.globaltrade.exception.InsufficientInventoryException;
+import com.jiat.globaltrade.interceptor.BusinessAuditInterceptor;
+import com.jiat.globaltrade.interceptor.BusinessValidationInterceptor;
+import com.jiat.globaltrade.interceptor.PerformanceMonitoringInterceptor;
+import com.jiat.globaltrade.interceptor.TradeComplianceInterceptor;
 import jakarta.ejb.EJB;
 import jakarta.ejb.Stateless;
 import jakarta.ejb.TransactionAttribute;
 import jakarta.ejb.TransactionAttributeType;
 import jakarta.ejb.TransactionManagement;
 import jakarta.ejb.TransactionManagementType;
+import jakarta.interceptor.Interceptors;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import java.time.LocalDate;
@@ -150,14 +155,20 @@ public class ShipmentServiceBean {
 
     /**
      * Multi-step atomic transaction orchestrating shipment dispatch:
-     * 1. Loads Shipment and validates status.
-     * 2. Calls InventoryServiceBean.adjustStockInternal (MANDATORY) to deduct quantity.
-     *    If stock is insufficient, InsufficientInventoryException is thrown, causing
-     *    the container to roll back all changes in this transaction.
-     * 3. Updates shipment status to IN_TRANSIT.
-     * 4. Logs audit entry via AuditServiceBean (REQUIRES_NEW).
+     * Demonstrates Complete Interceptor Chaining Order:
+     * 1. BusinessValidationInterceptor (Input parameter validation)
+     * 2. TradeComplianceInterceptor (Regulatory & operator authorization check)
+     * 3. PerformanceMonitoringInterceptor (Execution timing measurement)
+     * 4. BusinessAuditInterceptor (Autonomous business invocation auditing)
+     * 5. Business logic execution inside CMT REQUIRED transaction
      */
     @TransactionAttribute(TransactionAttributeType.REQUIRED)
+    @Interceptors({
+            BusinessValidationInterceptor.class,
+            TradeComplianceInterceptor.class,
+            PerformanceMonitoringInterceptor.class,
+            BusinessAuditInterceptor.class
+    })
     public Shipment processShipmentDispatch(Long shipmentId, Long inventoryItemId, int dispatchQuantity, String performedBy)
             throws InsufficientInventoryException {
 

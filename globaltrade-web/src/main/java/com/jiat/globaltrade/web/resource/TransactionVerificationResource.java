@@ -122,14 +122,17 @@ public class TransactionVerificationResource {
         }
     }
 
+    private static final java.util.logging.Logger LOGGER =
+            java.util.logging.Logger.getLogger(TransactionVerificationResource.class.getName());
+
     /**
      * Tests CMT transaction rollback & independent audit survival:
      * Annotated with NOT_SUPPORTED so this verification method does NOT own or join
      * the transaction being tested.
      * When ShipmentServiceBean.processShipmentDispatch(REQUIRED) throws InsufficientInventoryException
      * (@ApplicationException(rollback = true)), only that business transaction rolls back.
-     * This verification method catches the exception outside the rolled-back transaction context
-     * and returns the verification JSON.
+     * This verification method catches the exception (or container wrapper) outside the rolled-back
+     * transaction context, unwraps InsufficientInventoryException, and returns the verification JSON.
      * POST /api/transactions/dispatch/fail
      */
     @POST
@@ -145,39 +148,60 @@ public class TransactionVerificationResource {
             return Response.ok(Json.createObjectBuilder()
                     .add("status", "UNEXPECTED_SUCCESS")
                     .build()).build();
-        } catch (InsufficientInventoryException e) {
-            Shipment afterShipment = shipmentService.findShipmentById(1L);
-            InventoryItem afterItem = inventoryService.findInventoryItemById(1L);
-            long auditCountAfter = auditService.getAuditLogCount();
-
-            boolean inventoryUntouched = beforeItem != null && afterItem != null && beforeItem.getQuantity().equals(afterItem.getQuantity());
-            boolean shipmentUntouched = beforeShipment != null && afterShipment != null && beforeShipment.getShipmentStatus().equals(afterShipment.getShipmentStatus());
-            boolean independentAuditCommitted = auditCountAfter > auditCountBefore;
-
-            JsonObject response = Json.createObjectBuilder()
-                    .add("status", "TRANSACTION_ROLLED_BACK")
-                    .add("caughtException", e.getClass().getSimpleName())
-                    .add("exceptionMessage", e.getMessage())
-                    .add("rollbackVerified", inventoryUntouched && shipmentUntouched)
-                    .add("inventoryQuantityBefore", beforeItem != null ? beforeItem.getQuantity() : -1)
-                    .add("inventoryQuantityAfter", afterItem != null ? afterItem.getQuantity() : -1)
-                    .add("inventoryUntouched", inventoryUntouched)
-                    .add("shipmentStatusBefore", beforeShipment != null ? beforeShipment.getShipmentStatus().name() : "")
-                    .add("shipmentStatusAfter", afterShipment != null ? afterShipment.getShipmentStatus().name() : "")
-                    .add("shipmentUntouched", shipmentUntouched)
-                    .add("auditCountBefore", auditCountBefore)
-                    .add("auditCountAfter", auditCountAfter)
-                    .add("independentAuditCommitted", independentAuditCommitted)
-                    .build();
-
-            return Response.ok(response).build();
         } catch (Exception e) {
+            InsufficientInventoryException ex = findInsufficientInventoryException(e);
+            if (ex != null) {
+                Shipment afterShipment = shipmentService.findShipmentById(1L);
+                InventoryItem afterItem = inventoryService.findInventoryItemById(1L);
+                long auditCountAfter = auditService.getAuditLogCount();
+
+                boolean inventoryUntouched = beforeItem != null && afterItem != null && beforeItem.getQuantity().equals(afterItem.getQuantity());
+                boolean shipmentUntouched = beforeShipment != null && afterShipment != null && beforeShipment.getShipmentStatus().equals(afterShipment.getShipmentStatus());
+                boolean independentAuditCommitted = auditCountAfter > auditCountBefore;
+
+                JsonObject response = Json.createObjectBuilder()
+                        .add("status", "TRANSACTION_ROLLED_BACK")
+                        .add("caughtException", ex.getClass().getSimpleName())
+                        .add("exceptionMessage", ex.getMessage())
+                        .add("rollbackVerified", inventoryUntouched && shipmentUntouched)
+                        .add("inventoryQuantityBefore", beforeItem != null ? beforeItem.getQuantity() : -1)
+                        .add("inventoryQuantityAfter", afterItem != null ? afterItem.getQuantity() : -1)
+                        .add("inventoryUntouched", inventoryUntouched)
+                        .add("shipmentStatusBefore", beforeShipment != null ? beforeShipment.getShipmentStatus().name() : "")
+                        .add("shipmentStatusAfter", afterShipment != null ? afterShipment.getShipmentStatus().name() : "")
+                        .add("shipmentUntouched", shipmentUntouched)
+                        .add("auditCountBefore", auditCountBefore)
+                        .add("auditCountAfter", auditCountAfter)
+                        .add("independentAuditCommitted", independentAuditCommitted)
+                        .build();
+
+                return Response.ok(response).build();
+            }
+
+            LOGGER.log(java.util.logging.Level.SEVERE, "[TransactionVerificationResource] Unexpected error in failed dispatch test", e);
+
             JsonObject response = Json.createObjectBuilder()
                     .add("status", "UNEXPECTED_ERROR")
-                    .add("message", e.getMessage())
+                    .add("message", e.getMessage() != null ? e.getMessage() : "Unknown error")
                     .build();
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(response).build();
         }
+    }
+
+    /**
+     * Traverses exception cause hierarchy to unwrap container exceptions
+     * (e.g. EJBException, TransactionRolledbackLocalException, EJBTransactionRolledbackException)
+     * to find root InsufficientInventoryException.
+     */
+    private InsufficientInventoryException findInsufficientInventoryException(Throwable t) {
+        Throwable current = t;
+        while (current != null) {
+            if (current instanceof InsufficientInventoryException ex) {
+                return ex;
+            }
+            current = current.getCause();
+        }
+        return null;
     }
 
     /**

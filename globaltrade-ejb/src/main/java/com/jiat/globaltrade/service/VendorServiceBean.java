@@ -2,12 +2,16 @@ package com.jiat.globaltrade.service;
 
 import com.jiat.globaltrade.entity.Vendor;
 import com.jiat.globaltrade.entity.enums.VendorStatus;
+import com.jiat.globaltrade.interceptor.BusinessAuditInterceptor;
+import com.jiat.globaltrade.interceptor.BusinessValidationInterceptor;
+import com.jiat.globaltrade.interceptor.PerformanceMonitoringInterceptor;
 import jakarta.ejb.EJB;
 import jakarta.ejb.Stateless;
 import jakarta.ejb.TransactionAttribute;
 import jakarta.ejb.TransactionAttributeType;
 import jakarta.ejb.TransactionManagement;
 import jakarta.ejb.TransactionManagementType;
+import jakarta.interceptor.Interceptors;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import java.math.BigDecimal;
@@ -17,9 +21,18 @@ import java.util.logging.Logger;
 
 /**
  * Core business service for vendor management using Container-Managed Transactions (CMT).
+ * Demonstrates Class-Level Interceptor Chaining:
+ * 1. BusinessValidationInterceptor (Input constraints validation)
+ * 2. PerformanceMonitoringInterceptor (Execution timing via System.nanoTime)
+ * 3. BusinessAuditInterceptor (Autonomous audit logging via REQUIRES_NEW)
  */
 @Stateless
 @TransactionManagement(TransactionManagementType.CONTAINER)
+@Interceptors({
+        BusinessValidationInterceptor.class,
+        PerformanceMonitoringInterceptor.class,
+        BusinessAuditInterceptor.class
+})
 public class VendorServiceBean {
 
     private static final Logger LOGGER = Logger.getLogger(VendorServiceBean.class.getName());
