@@ -1,6 +1,9 @@
 package com.jiat.globaltrade.service;
 
 import com.jiat.globaltrade.entity.AuditLog;
+import com.jiat.globaltrade.security.SecurityRoles;
+import jakarta.annotation.security.DeclareRoles;
+import jakarta.annotation.security.PermitAll;
 import jakarta.ejb.Stateless;
 import jakarta.ejb.TransactionAttribute;
 import jakarta.ejb.TransactionAttributeType;
@@ -21,6 +24,15 @@ import java.util.logging.Logger;
  */
 @Stateless
 @TransactionManagement(TransactionManagementType.CONTAINER)
+@DeclareRoles({
+        SecurityRoles.ADMIN,
+        SecurityRoles.LOGISTICS_COORDINATOR,
+        SecurityRoles.CUSTOMS_AGENT,
+        SecurityRoles.WAREHOUSE_MANAGER,
+        SecurityRoles.VENDOR_REPRESENTATIVE,
+        SecurityRoles.CUSTOMER,
+        SecurityRoles.SYSTEM
+})
 public class AuditServiceBean {
 
     private static final Logger LOGGER = Logger.getLogger(AuditServiceBean.class.getName());
@@ -30,8 +42,9 @@ public class AuditServiceBean {
 
     /**
      * Persists an audit log record in an independent transaction.
-     * If the calling transaction subsequently rolls back, this audit log remains committed.
+     * Accessible by all components, interceptors, and timer beans.
      */
+    @PermitAll
     @TransactionAttribute(TransactionAttributeType.REQUIRES_NEW)
     public AuditLog logAction(String action, String entityType, Long entityId, String performedBy, String details) {
         try {
@@ -57,6 +70,7 @@ public class AuditServiceBean {
      * Read-only retrieval of the most recent audit logs.
      * SUPPORTS allows participation in an existing transaction if present, or executes without one.
      */
+    @PermitAll
     @TransactionAttribute(TransactionAttributeType.SUPPORTS)
     public List<AuditLog> getRecentLogs(int limit) {
         int max = limit > 0 ? limit : 50;
@@ -68,6 +82,7 @@ public class AuditServiceBean {
     /**
      * Returns the total count of audit logs recorded.
      */
+    @PermitAll
     @TransactionAttribute(TransactionAttributeType.SUPPORTS)
     public long getAuditLogCount() {
         return em.createQuery("SELECT COUNT(a) FROM AuditLog a", Long.class)

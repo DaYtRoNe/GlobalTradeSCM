@@ -2,6 +2,10 @@ package com.jiat.globaltrade.service;
 
 import com.jiat.globaltrade.entity.InventoryItem;
 import com.jiat.globaltrade.exception.InsufficientInventoryException;
+import com.jiat.globaltrade.security.SecurityRoles;
+import jakarta.annotation.security.DeclareRoles;
+import jakarta.annotation.security.PermitAll;
+import jakarta.annotation.security.RolesAllowed;
 import jakarta.ejb.EJB;
 import jakarta.ejb.Stateless;
 import jakarta.ejb.TransactionAttribute;
@@ -21,6 +25,15 @@ import java.util.logging.Logger;
  */
 @Stateless
 @TransactionManagement(TransactionManagementType.CONTAINER)
+@DeclareRoles({
+        SecurityRoles.ADMIN,
+        SecurityRoles.LOGISTICS_COORDINATOR,
+        SecurityRoles.CUSTOMS_AGENT,
+        SecurityRoles.WAREHOUSE_MANAGER,
+        SecurityRoles.VENDOR_REPRESENTATIVE,
+        SecurityRoles.CUSTOMER,
+        SecurityRoles.SYSTEM
+})
 public class InventoryServiceBean {
 
     private static final Logger LOGGER = Logger.getLogger(InventoryServiceBean.class.getName());
@@ -35,6 +48,7 @@ public class InventoryServiceBean {
      * Read-only lookup of an inventory item by primary key.
      * SUPPORTS avoids creating an unnecessary transaction when invoked outside one.
      */
+    @PermitAll
     @TransactionAttribute(TransactionAttributeType.SUPPORTS)
     public InventoryItem findInventoryItemById(Long id) {
         if (id == null) {
@@ -46,6 +60,7 @@ public class InventoryServiceBean {
     /**
      * Read-only lookup of all inventory items.
      */
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.WAREHOUSE_MANAGER, SecurityRoles.LOGISTICS_COORDINATOR})
     @TransactionAttribute(TransactionAttributeType.SUPPORTS)
     public List<InventoryItem> findAllInventoryItems() {
         return em.createQuery("SELECT i FROM InventoryItem i ORDER BY i.sku ASC", InventoryItem.class)
@@ -56,6 +71,7 @@ public class InventoryServiceBean {
      * Increases inventory quantity (e.g. stock replenishment or return).
      * REQUIRED joins or creates a transaction.
      */
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.WAREHOUSE_MANAGER})
     @TransactionAttribute(TransactionAttributeType.REQUIRED)
     public InventoryItem increaseStock(Long itemId, int quantity, String performedBy) {
         if (itemId == null || quantity <= 0) {
@@ -88,6 +104,7 @@ public class InventoryServiceBean {
      * If available stock is insufficient, throws InsufficientInventoryException
      * which automatically triggers transaction rollback via @ApplicationException(rollback = true).
      */
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.WAREHOUSE_MANAGER})
     @TransactionAttribute(TransactionAttributeType.REQUIRED)
     public InventoryItem decreaseStock(Long itemId, int quantity, String performedBy) throws InsufficientInventoryException {
         if (itemId == null || quantity <= 0) {
@@ -127,6 +144,7 @@ public class InventoryServiceBean {
      * initiated by an orchestrator (such as ShipmentServiceBean.processShipmentDispatch).
      * If called without an active transaction, the container throws TransactionRequiredException.
      */
+    @PermitAll
     @TransactionAttribute(TransactionAttributeType.MANDATORY)
     public InventoryItem adjustStockInternal(Long itemId, int deltaQuantity) throws InsufficientInventoryException {
         if (itemId == null) {
@@ -160,6 +178,7 @@ public class InventoryServiceBean {
     /**
      * Checks if current stock has dropped to or below the reorder threshold.
      */
+    @PermitAll
     @TransactionAttribute(TransactionAttributeType.SUPPORTS)
     public boolean isReorderLevelReached(Long itemId) {
         InventoryItem item = findInventoryItemById(itemId);

@@ -4,10 +4,13 @@ import com.jiat.globaltrade.entity.AuditLog;
 import com.jiat.globaltrade.entity.InventoryItem;
 import com.jiat.globaltrade.entity.Shipment;
 import com.jiat.globaltrade.exception.InsufficientInventoryException;
+import com.jiat.globaltrade.security.SecurityRoles;
 import com.jiat.globaltrade.service.AuditServiceBean;
 import com.jiat.globaltrade.service.InventoryReconciliationBean;
 import com.jiat.globaltrade.service.InventoryServiceBean;
 import com.jiat.globaltrade.service.ShipmentServiceBean;
+import jakarta.annotation.security.DeclareRoles;
+import jakarta.annotation.security.RolesAllowed;
 import jakarta.ejb.EJB;
 import jakarta.ejb.Stateless;
 import jakarta.ejb.TransactionAttribute;
@@ -26,10 +29,13 @@ import java.util.List;
 
 /**
  * Minimal verification resource for testing Phase 2 EJB Transaction Management (CMT & BMT).
+ * Secured under @RolesAllowed(ADMIN) to allow diagnostic execution of secured business services.
  */
 @Stateless
 @Path("/transactions")
 @Produces(MediaType.APPLICATION_JSON)
+@DeclareRoles({SecurityRoles.ADMIN})
+@RolesAllowed(SecurityRoles.ADMIN)
 public class TransactionVerificationResource {
 
     @EJB

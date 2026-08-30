@@ -5,6 +5,10 @@ import com.jiat.globaltrade.entity.enums.VendorStatus;
 import com.jiat.globaltrade.interceptor.BusinessAuditInterceptor;
 import com.jiat.globaltrade.interceptor.BusinessValidationInterceptor;
 import com.jiat.globaltrade.interceptor.PerformanceMonitoringInterceptor;
+import com.jiat.globaltrade.security.SecurityRoles;
+import jakarta.annotation.security.DeclareRoles;
+import jakarta.annotation.security.PermitAll;
+import jakarta.annotation.security.RolesAllowed;
 import jakarta.ejb.EJB;
 import jakarta.ejb.Stateless;
 import jakarta.ejb.TransactionAttribute;
@@ -21,13 +25,19 @@ import java.util.logging.Logger;
 
 /**
  * Core business service for vendor management using Container-Managed Transactions (CMT).
- * Demonstrates Class-Level Interceptor Chaining:
- * 1. BusinessValidationInterceptor (Input constraints validation)
- * 2. PerformanceMonitoringInterceptor (Execution timing via System.nanoTime)
- * 3. BusinessAuditInterceptor (Autonomous audit logging via REQUIRES_NEW)
+ * Demonstrates Class-Level Interceptor Chaining and Method-Level Role-Based Access Control (RBAC).
  */
 @Stateless
 @TransactionManagement(TransactionManagementType.CONTAINER)
+@DeclareRoles({
+        SecurityRoles.ADMIN,
+        SecurityRoles.LOGISTICS_COORDINATOR,
+        SecurityRoles.VENDOR_REPRESENTATIVE,
+        SecurityRoles.CUSTOMS_AGENT,
+        SecurityRoles.WAREHOUSE_MANAGER,
+        SecurityRoles.CUSTOMER,
+        SecurityRoles.SYSTEM
+})
 @Interceptors({
         BusinessValidationInterceptor.class,
         PerformanceMonitoringInterceptor.class,
@@ -45,8 +55,9 @@ public class VendorServiceBean {
 
     /**
      * Read-only lookup for a single vendor by ID.
-     * SUPPORTS allows calling within an existing transaction or running without one.
+     * Accessible by all authenticated callers and internal lookup services.
      */
+    @PermitAll
     @TransactionAttribute(TransactionAttributeType.SUPPORTS)
     public Vendor findVendorById(Long id) {
         if (id == null) {
@@ -57,7 +68,9 @@ public class VendorServiceBean {
 
     /**
      * Read-only lookup for all vendors.
+     * Restricted to administrative and logistics management roles.
      */
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.LOGISTICS_COORDINATOR})
     @TransactionAttribute(TransactionAttributeType.SUPPORTS)
     public List<Vendor> findAllVendors() {
         return em.createQuery("SELECT v FROM Vendor v ORDER BY v.companyName ASC", Vendor.class)
@@ -66,8 +79,9 @@ public class VendorServiceBean {
 
     /**
      * Updates the operational status of a vendor.
-     * REQUIRED ensures this operation runs inside an active transaction.
+     * Restricted strictly to the ADMIN role.
      */
+    @RolesAllowed(SecurityRoles.ADMIN)
     @TransactionAttribute(TransactionAttributeType.REQUIRED)
     public Vendor updateVendorStatus(Long vendorId, VendorStatus newStatus, String performedBy) {
         if (vendorId == null || newStatus == null) {
@@ -95,8 +109,10 @@ public class VendorServiceBean {
 
     /**
      * Updates the performance rating of a vendor.
+     * Restricted to ADMIN and LOGISTICS_COORDINATOR roles.
      * REQUIRED ensures this update is persisted within a transaction.
      */
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.LOGISTICS_COORDINATOR})
     @TransactionAttribute(TransactionAttributeType.REQUIRED)
     public Vendor updatePerformanceRating(Long vendorId, BigDecimal newRating, String performedBy) {
         if (vendorId == null || newRating == null) {

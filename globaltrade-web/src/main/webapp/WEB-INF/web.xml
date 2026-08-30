@@ -21,18 +21,13 @@
 
     <!-- ======================================================================= -->
     <!-- Phase 5A: Dedicated Security Verification API Protection                -->
-    <!-- Protects /api/security/* requiring authenticated container identity     -->
-    <!-- Phase 1-4 business endpoints remain accessible for testing              -->
+    <!-- Protects all HTTP methods under /api/security/*                         -->
     <!-- ======================================================================= -->
     <security-constraint>
         <display-name>Security Verification Constraint</display-name>
         <web-resource-collection>
             <web-resource-name>Protected Security API</web-resource-name>
             <url-pattern>/api/security/*</url-pattern>
-            <http-method>GET</http-method>
-            <http-method>POST</http-method>
-            <http-method>PUT</http-method>
-            <http-method>DELETE</http-method>
         </web-resource-collection>
         <auth-constraint>
             <role-name>ADMIN</role-name>
@@ -41,6 +36,53 @@
             <role-name>WAREHOUSE_MANAGER</role-name>
             <role-name>VENDOR_REPRESENTATIVE</role-name>
             <role-name>CUSTOMER</role-name>
+        </auth-constraint>
+    </security-constraint>
+
+    <!-- ======================================================================= -->
+    <!-- Phase 5B-1: Real Business Security API Protection                       -->
+    <!-- Protects all HTTP methods under /api/business-security/*                -->
+    <!-- ======================================================================= -->
+    <security-constraint>
+        <display-name>Business Security Verification Constraint</display-name>
+        <web-resource-collection>
+            <web-resource-name>Protected Business Security API</web-resource-name>
+            <url-pattern>/api/business-security/*</url-pattern>
+        </web-resource-collection>
+        <auth-constraint>
+            <role-name>ADMIN</role-name>
+            <role-name>LOGISTICS_COORDINATOR</role-name>
+            <role-name>CUSTOMS_AGENT</role-name>
+            <role-name>WAREHOUSE_MANAGER</role-name>
+            <role-name>VENDOR_REPRESENTATIVE</role-name>
+            <role-name>CUSTOMER</role-name>
+        </auth-constraint>
+    </security-constraint>
+
+    <!-- ======================================================================= -->
+    <!-- Diagnostic Security Constraints: Transactions & Interceptors Testing   -->
+    <!-- Protects all HTTP methods under /api/transactions/* and /api/interceptors/* -->
+    <!-- Requires ADMIN role to invoke diagnostic execution of secured EJBs      -->
+    <!-- ======================================================================= -->
+    <security-constraint>
+        <display-name>Transaction Verification Diagnostic Constraint</display-name>
+        <web-resource-collection>
+            <web-resource-name>Protected Transaction Verification API</web-resource-name>
+            <url-pattern>/api/transactions/*</url-pattern>
+        </web-resource-collection>
+        <auth-constraint>
+            <role-name>ADMIN</role-name>
+        </auth-constraint>
+    </security-constraint>
+
+    <security-constraint>
+        <display-name>Interceptor Verification Diagnostic Constraint</display-name>
+        <web-resource-collection>
+            <web-resource-name>Protected Interceptor Verification API</web-resource-name>
+            <url-pattern>/api/interceptors/*</url-pattern>
+        </web-resource-collection>
+        <auth-constraint>
+            <role-name>ADMIN</role-name>
         </auth-constraint>
     </security-constraint>
 
@@ -83,5 +125,8 @@
         <description>Internal System Identity</description>
         <role-name>SYSTEM</role-name>
     </security-role>
+
+    <!-- Automatically deny any uncovered HTTP methods for protected resources -->
+    <deny-uncovered-http-methods/>
 
 </web-app>

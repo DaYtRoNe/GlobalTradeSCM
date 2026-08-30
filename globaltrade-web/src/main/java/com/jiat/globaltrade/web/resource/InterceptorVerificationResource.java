@@ -5,8 +5,11 @@ import com.jiat.globaltrade.entity.Vendor;
 import com.jiat.globaltrade.entity.enums.CustomsDocumentStatus;
 import com.jiat.globaltrade.entity.enums.CustomsDocumentType;
 import com.jiat.globaltrade.interceptor.InterceptorMetricsBean;
+import com.jiat.globaltrade.security.SecurityRoles;
 import com.jiat.globaltrade.service.CustomsServiceBean;
 import com.jiat.globaltrade.service.VendorServiceBean;
+import jakarta.annotation.security.DeclareRoles;
+import jakarta.annotation.security.RolesAllowed;
 import jakarta.ejb.EJB;
 import jakarta.ejb.Stateless;
 import jakarta.ejb.TransactionAttribute;
@@ -31,14 +34,15 @@ import java.time.LocalDate;
  * - Interceptor Chaining
  *
  * Configured with @TransactionAttribute(NOT_SUPPORTED) so the verification resource itself
- * does not initiate an outer transaction context, allowing business EJBs to manage their own
- * CMT transactions independently and preventing validation/compliance exceptions from aborting
- * the REST layer.
+ * does not initiate an outer transaction context.
+ * Secured under @RolesAllowed(ADMIN) for diagnostic execution of secured business services.
  */
 @Stateless
 @Path("/interceptors")
 @Produces(MediaType.APPLICATION_JSON)
 @TransactionAttribute(TransactionAttributeType.NOT_SUPPORTED)
+@DeclareRoles({SecurityRoles.ADMIN})
+@RolesAllowed(SecurityRoles.ADMIN)
 public class InterceptorVerificationResource {
 
     @EJB

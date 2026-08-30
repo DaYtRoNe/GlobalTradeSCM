@@ -9,6 +9,10 @@ import com.jiat.globaltrade.interceptor.BusinessAuditInterceptor;
 import com.jiat.globaltrade.interceptor.BusinessValidationInterceptor;
 import com.jiat.globaltrade.interceptor.PerformanceMonitoringInterceptor;
 import com.jiat.globaltrade.interceptor.TradeComplianceInterceptor;
+import com.jiat.globaltrade.security.SecurityRoles;
+import jakarta.annotation.security.DeclareRoles;
+import jakarta.annotation.security.PermitAll;
+import jakarta.annotation.security.RolesAllowed;
 import jakarta.ejb.EJB;
 import jakarta.ejb.Stateless;
 import jakarta.ejb.TransactionAttribute;
@@ -26,9 +30,19 @@ import java.util.logging.Logger;
 
 /**
  * Core business service for shipment operations and transactional dispatch orchestration.
+ * Demonstrates CMT transaction orchestration, Interceptor Chaining, and Method-Level RBAC.
  */
 @Stateless
 @TransactionManagement(TransactionManagementType.CONTAINER)
+@DeclareRoles({
+        SecurityRoles.ADMIN,
+        SecurityRoles.LOGISTICS_COORDINATOR,
+        SecurityRoles.CUSTOMS_AGENT,
+        SecurityRoles.WAREHOUSE_MANAGER,
+        SecurityRoles.VENDOR_REPRESENTATIVE,
+        SecurityRoles.CUSTOMER,
+        SecurityRoles.SYSTEM
+})
 public class ShipmentServiceBean {
 
     private static final Logger LOGGER = Logger.getLogger(ShipmentServiceBean.class.getName());
@@ -45,6 +59,7 @@ public class ShipmentServiceBean {
     /**
      * Read-only lookup for a shipment by ID.
      */
+    @PermitAll
     @TransactionAttribute(TransactionAttributeType.SUPPORTS)
     public Shipment findShipmentById(Long id) {
         if (id == null) {
@@ -56,6 +71,7 @@ public class ShipmentServiceBean {
     /**
      * Read-only lookup for all shipments.
      */
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.LOGISTICS_COORDINATOR})
     @TransactionAttribute(TransactionAttributeType.SUPPORTS)
     public List<Shipment> findAllShipments() {
         return em.createQuery("SELECT s FROM Shipment s ORDER BY s.createdAt DESC", Shipment.class)
@@ -66,6 +82,7 @@ public class ShipmentServiceBean {
      * Creates a new shipment associated with a specific vendor.
      * REQUIRED ensures atomic persistence.
      */
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.LOGISTICS_COORDINATOR})
     @TransactionAttribute(TransactionAttributeType.REQUIRED)
     public Shipment createShipment(Shipment shipment, Long vendorId, String performedBy) {
         if (shipment == null || vendorId == null) {
@@ -99,6 +116,7 @@ public class ShipmentServiceBean {
     /**
      * Updates the status of an existing shipment.
      */
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.LOGISTICS_COORDINATOR})
     @TransactionAttribute(TransactionAttributeType.REQUIRED)
     public Shipment updateShipmentStatus(Long shipmentId, ShipmentStatus newStatus, String performedBy) {
         if (shipmentId == null || newStatus == null) {
@@ -128,6 +146,7 @@ public class ShipmentServiceBean {
     /**
      * Marks a shipment as delivered and records the actual delivery date.
      */
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.LOGISTICS_COORDINATOR, SecurityRoles.WAREHOUSE_MANAGER})
     @TransactionAttribute(TransactionAttributeType.REQUIRED)
     public Shipment markShipmentDelivered(Long shipmentId, LocalDate actualDeliveryDate, String performedBy) {
         if (shipmentId == null) {
@@ -162,6 +181,7 @@ public class ShipmentServiceBean {
      * 4. BusinessAuditInterceptor (Autonomous business invocation auditing)
      * 5. Business logic execution inside CMT REQUIRED transaction
      */
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.LOGISTICS_COORDINATOR, SecurityRoles.WAREHOUSE_MANAGER})
     @TransactionAttribute(TransactionAttributeType.REQUIRED)
     @Interceptors({
             BusinessValidationInterceptor.class,

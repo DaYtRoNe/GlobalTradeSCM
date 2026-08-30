@@ -7,6 +7,10 @@ import com.jiat.globaltrade.interceptor.BusinessAuditInterceptor;
 import com.jiat.globaltrade.interceptor.BusinessValidationInterceptor;
 import com.jiat.globaltrade.interceptor.PerformanceMonitoringInterceptor;
 import com.jiat.globaltrade.interceptor.TradeComplianceInterceptor;
+import com.jiat.globaltrade.security.SecurityRoles;
+import jakarta.annotation.security.DeclareRoles;
+import jakarta.annotation.security.PermitAll;
+import jakarta.annotation.security.RolesAllowed;
 import jakarta.ejb.EJB;
 import jakarta.ejb.Stateless;
 import jakarta.ejb.TransactionAttribute;
@@ -23,12 +27,19 @@ import java.util.logging.Logger;
 
 /**
  * Core business service for customs declarations and regulatory compliance documentation.
- * Demonstrates Class-Level & Method-Level Interceptor Combination:
- * - Class-level: PerformanceMonitoringInterceptor (times all operations)
- * - Method-level on mutating operations: BusinessValidationInterceptor, TradeComplianceInterceptor, BusinessAuditInterceptor
+ * Demonstrates Class-Level & Method-Level Interceptor Combination and Declarative RBAC.
  */
 @Stateless
 @TransactionManagement(TransactionManagementType.CONTAINER)
+@DeclareRoles({
+        SecurityRoles.ADMIN,
+        SecurityRoles.LOGISTICS_COORDINATOR,
+        SecurityRoles.CUSTOMS_AGENT,
+        SecurityRoles.WAREHOUSE_MANAGER,
+        SecurityRoles.VENDOR_REPRESENTATIVE,
+        SecurityRoles.CUSTOMER,
+        SecurityRoles.SYSTEM
+})
 public class CustomsServiceBean {
 
     private static final Logger LOGGER = Logger.getLogger(CustomsServiceBean.class.getName());
@@ -42,6 +53,7 @@ public class CustomsServiceBean {
     /**
      * Read-only lookup of a customs document by ID.
      */
+    @PermitAll
     @TransactionAttribute(TransactionAttributeType.SUPPORTS)
     public CustomsDocument findCustomsDocumentById(Long id) {
         if (id == null) {
@@ -53,6 +65,7 @@ public class CustomsServiceBean {
     /**
      * Read-only query for all documents associated with a shipment.
      */
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.CUSTOMS_AGENT, SecurityRoles.LOGISTICS_COORDINATOR})
     @TransactionAttribute(TransactionAttributeType.SUPPORTS)
     public List<CustomsDocument> findDocumentsByShipment(Long shipmentId) {
         return em.createQuery("SELECT c FROM CustomsDocument c WHERE c.shipment.id = :shipmentId", CustomsDocument.class)
@@ -68,6 +81,7 @@ public class CustomsServiceBean {
      * 3. PerformanceMonitoringInterceptor (Execution timing measurement)
      * 4. BusinessAuditInterceptor (Invocation auditing)
      */
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.CUSTOMS_AGENT})
     @TransactionAttribute(TransactionAttributeType.REQUIRED)
     @Interceptors({
             BusinessValidationInterceptor.class,
@@ -114,6 +128,7 @@ public class CustomsServiceBean {
      * 3. PerformanceMonitoringInterceptor
      * 4. BusinessAuditInterceptor
      */
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.CUSTOMS_AGENT})
     @TransactionAttribute(TransactionAttributeType.REQUIRED)
     @Interceptors({
             BusinessValidationInterceptor.class,

@@ -143,6 +143,23 @@ CREATE TABLE IF NOT EXISTS user_roles (
         ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- -----------------------------------------------------------------------------
+-- Table: vendor_user_access (Fine-Grained Vendor Data Authorization Mapping)
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS vendor_user_access (
+    username VARCHAR(50) NOT NULL,
+    vendor_id BIGINT NOT NULL,
+    PRIMARY KEY (username, vendor_id),
+    CONSTRAINT fk_vendor_access_user FOREIGN KEY (username)
+        REFERENCES app_users (username)
+        ON DELETE CASCADE
+        ON UPDATE CASCADE,
+    CONSTRAINT fk_vendor_access_vendor FOREIGN KEY (vendor_id)
+        REFERENCES vendors (id)
+        ON DELETE CASCADE
+        ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- =============================================================================
 -- Initial Seed Data (Optional for testing)
 -- =============================================================================
@@ -216,3 +233,8 @@ INSERT INTO user_roles (username, role_name) VALUES
     ('gt_vendor', 'VENDOR_REPRESENTATIVE'),
     ('gt_customer', 'CUSTOMER')
 ON DUPLICATE KEY UPDATE role_name = VALUES(role_name);
+
+-- Fine-Grained Authorization Seed: Map gt_vendor to Vendor #1 ('Pacific Cargo Ltd')
+INSERT INTO vendor_user_access (username, vendor_id) VALUES
+    ('gt_vendor', 1)
+ON DUPLICATE KEY UPDATE vendor_id = VALUES(vendor_id);
