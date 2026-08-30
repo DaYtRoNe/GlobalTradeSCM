@@ -1,0 +1,148 @@
+-- =============================================================================
+-- GlobalTrade Supply Chain Management System
+-- Database Schema Setup Script (MySQL)
+-- =============================================================================
+
+CREATE DATABASE IF NOT EXISTS globaltrade_db
+    CHARACTER SET utf8mb4
+    COLLATE utf8mb4_unicode_ci;
+
+USE globaltrade_db;
+
+-- -----------------------------------------------------------------------------
+-- Table: vendors
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS vendors (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    vendor_code VARCHAR(50) NOT NULL UNIQUE,
+    company_name VARCHAR(150) NOT NULL,
+    contact_name VARCHAR(100),
+    email VARCHAR(100),
+    phone VARCHAR(30),
+    country VARCHAR(60),
+    status VARCHAR(30) NOT NULL DEFAULT 'ACTIVE',
+    performance_rating DECIMAL(3, 2),
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- -----------------------------------------------------------------------------
+-- Table: warehouses
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS warehouses (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    warehouse_code VARCHAR(50) NOT NULL UNIQUE,
+    name VARCHAR(150) NOT NULL,
+    country VARCHAR(60) NOT NULL,
+    city VARCHAR(100) NOT NULL,
+    capacity INT NOT NULL,
+    active BOOLEAN NOT NULL DEFAULT TRUE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- -----------------------------------------------------------------------------
+-- Table: inventory_items
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS inventory_items (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    sku VARCHAR(50) NOT NULL UNIQUE,
+    item_name VARCHAR(150) NOT NULL,
+    quantity INT NOT NULL,
+    reorder_level INT NOT NULL,
+    unit_price DECIMAL(12, 2) NOT NULL,
+    warehouse_id BIGINT NOT NULL,
+    last_updated DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_inventory_warehouse FOREIGN KEY (warehouse_id)
+        REFERENCES warehouses (id)
+        ON DELETE RESTRICT
+        ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- -----------------------------------------------------------------------------
+-- Table: shipments
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS shipments (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    tracking_number VARCHAR(100) NOT NULL UNIQUE,
+    origin VARCHAR(100) NOT NULL,
+    destination VARCHAR(100) NOT NULL,
+    shipment_status VARCHAR(30) NOT NULL DEFAULT 'PENDING',
+    expected_delivery_date DATE,
+    actual_delivery_date DATE,
+    vendor_id BIGINT NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NULL,
+    CONSTRAINT fk_shipment_vendor FOREIGN KEY (vendor_id)
+        REFERENCES vendors (id)
+        ON DELETE RESTRICT
+        ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- -----------------------------------------------------------------------------
+-- Table: customs_documents
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS customs_documents (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    document_number VARCHAR(100) NOT NULL UNIQUE,
+    document_type VARCHAR(50) NOT NULL,
+    status VARCHAR(30) NOT NULL DEFAULT 'PENDING',
+    submission_deadline DATE,
+    shipment_id BIGINT NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_customs_shipment FOREIGN KEY (shipment_id)
+        REFERENCES shipments (id)
+        ON DELETE CASCADE
+        ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- -----------------------------------------------------------------------------
+-- Table: audit_logs
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS audit_logs (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    action VARCHAR(100) NOT NULL,
+    entity_type VARCHAR(100) NOT NULL,
+    entity_id BIGINT,
+    performed_by VARCHAR(100),
+    timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    details VARCHAR(1000)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- =============================================================================
+-- Initial Seed Data (Optional for testing)
+-- =============================================================================
+
+INSERT INTO vendors (vendor_code, company_name, contact_name, email, phone, country, status, performance_rating, created_at)
+VALUES
+    ('VND-001', 'Pacific Cargo Ltd', 'Johnathan Smith', 'john@pacificcargo.com', '+1-555-0199', 'United States', 'ACTIVE', 4.85, NOW()),
+    ('VND-002', 'SilkRoad Logistics GmbH', 'Greta Weber', 'g.weber@silkroad.de', '+49-30-123456', 'Germany', 'ACTIVE', 4.60, NOW()),
+    ('VND-003', 'AsiaPacific Maritime', 'Kenji Sato', 'sato@apmaritime.jp', '+81-3-987654', 'Japan', 'UNDER_REVIEW', 3.90, NOW())
+ON DUPLICATE KEY UPDATE company_name = VALUES(company_name);
+
+INSERT INTO warehouses (warehouse_code, name, country, city, capacity, active)
+VALUES
+    ('WH-SIN-01', 'Singapore Central Hub', 'Singapore', 'Singapore', 50000, TRUE),
+    ('WH-ROT-01', 'Rotterdam Port Terminal', 'Netherlands', 'Rotterdam', 75000, TRUE),
+    ('WH-LAX-01', 'Los Angeles Gateway', 'United States', 'Los Angeles', 60000, TRUE)
+ON DUPLICATE KEY UPDATE name = VALUES(name);
+
+INSERT INTO inventory_items (sku, item_name, quantity, reorder_level, unit_price, warehouse_id, last_updated)
+VALUES
+    ('SKU-ELEC-001', 'Industrial Microcontroller Unit', 1200, 200, 45.50, 1, NOW()),
+    ('SKU-AUTO-002', 'Hydraulic Brake Sensor Assembly', 450, 100, 120.00, 2, NOW()),
+    ('SKU-SOL-003', 'Photovoltaic Inverter 5kW', 80, 25, 650.00, 3, NOW())
+ON DUPLICATE KEY UPDATE item_name = VALUES(item_name);
+
+INSERT INTO shipments (tracking_number, origin, destination, shipment_status, expected_delivery_date, actual_delivery_date, vendor_id, created_at)
+VALUES
+    ('TRK-2026-001', 'Tokyo, Japan', 'Singapore', 'IN_TRANSIT', DATE_ADD(CURDATE(), INTERVAL 5 DAY), NULL, 3, NOW()),
+    ('TRK-2026-002', 'Hamburg, Germany', 'Rotterdam, Netherlands', 'DELIVERED', DATE_SUB(CURDATE(), INTERVAL 2 DAY), DATE_SUB(CURDATE(), INTERVAL 2 DAY), 2, NOW())
+ON DUPLICATE KEY UPDATE origin = VALUES(origin);
+
+INSERT INTO customs_documents (document_number, document_type, status, submission_deadline, shipment_id, created_at)
+VALUES
+    ('DOC-IMP-2026-001', 'IMPORT_DECLARATION', 'SUBMITTED', DATE_ADD(CURDATE(), INTERVAL 3 DAY), 1, NOW()),
+    ('DOC-INV-2026-002', 'COMMERCIAL_INVOICE', 'APPROVED', DATE_SUB(CURDATE(), INTERVAL 4 DAY), 2, NOW())
+ON DUPLICATE KEY UPDATE status = VALUES(status);
+
+INSERT INTO audit_logs (action, entity_type, entity_id, performed_by, timestamp, details)
+VALUES
+    ('SYSTEM_INIT', 'SYSTEM', NULL, 'SYSTEM', NOW(), 'GlobalTrade domain model initialized with baseline seed data.');
