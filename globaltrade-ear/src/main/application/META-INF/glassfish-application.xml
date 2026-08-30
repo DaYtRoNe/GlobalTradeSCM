@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE glassfish-application PUBLIC "-//GlassFish.org//DTD GlassFish Application 3.1//EN"
+        "https://glassfish.org/dtds/glassfish-application_3_1-0.dtd">
+<glassfish-application>
+
+    <!-- Application-level Security Realm Configuration for Payara Server -->
+    <realm>GlobalTradeRealm</realm>
+
+    <!-- Enables automatic mapping between JDBC Realm group names and same-named Jakarta EE security roles -->
+    <property name="default-role-mapping" value="true">
+        <description>Map JDBC realm group names to application roles with identical names</description>
+    </property>
+
+</glassfish-application>

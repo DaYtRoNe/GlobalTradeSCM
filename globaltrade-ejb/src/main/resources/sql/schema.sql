@@ -106,6 +106,43 @@ CREATE TABLE IF NOT EXISTS audit_logs (
     details VARCHAR(1000)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- -----------------------------------------------------------------------------
+-- Table: app_users (Authentication credentials for Payara JDBC Realm)
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS app_users (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    username VARCHAR(50) NOT NULL UNIQUE,
+    password_hash VARCHAR(128) NOT NULL,
+    display_name VARCHAR(100) NOT NULL,
+    active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- -----------------------------------------------------------------------------
+-- Table: security_roles (Role definitions for RBAC)
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS security_roles (
+    role_name VARCHAR(50) PRIMARY KEY,
+    description VARCHAR(255)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- -----------------------------------------------------------------------------
+-- Table: user_roles (User to Role mapping for Payara JDBC Realm group lookups)
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS user_roles (
+    username VARCHAR(50) NOT NULL,
+    role_name VARCHAR(50) NOT NULL,
+    PRIMARY KEY (username, role_name),
+    CONSTRAINT fk_user_roles_user FOREIGN KEY (username)
+        REFERENCES app_users (username)
+        ON DELETE CASCADE
+        ON UPDATE CASCADE,
+    CONSTRAINT fk_user_roles_role FOREIGN KEY (role_name)
+        REFERENCES security_roles (role_name)
+        ON DELETE CASCADE
+        ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- =============================================================================
 -- Initial Seed Data (Optional for testing)
 -- =============================================================================
@@ -146,3 +183,36 @@ ON DUPLICATE KEY UPDATE status = VALUES(status);
 INSERT INTO audit_logs (action, entity_type, entity_id, performed_by, timestamp, details)
 VALUES
     ('SYSTEM_INIT', 'SYSTEM', NULL, 'SYSTEM', NOW(), 'GlobalTrade domain model initialized with baseline seed data.');
+
+-- -----------------------------------------------------------------------------
+-- Security Seed Data: Roles, Users, Role Assignments
+-- Demo Passwords for all accounts: 'Password@123'
+-- SHA-256 Digest (HEX): ff7bd97b1a7789ddd2775122fd6817f3173672da9f802ceec57f284325bf589f
+-- -----------------------------------------------------------------------------
+INSERT INTO security_roles (role_name, description) VALUES
+    ('ADMIN', 'Enterprise Global Administrator with full system privileges'),
+    ('LOGISTICS_COORDINATOR', 'Coordinates shipment routes, dispatches, and carrier scheduling'),
+    ('CUSTOMS_AGENT', 'Manages international trade documentation and statutory customs clearance'),
+    ('WAREHOUSE_MANAGER', 'Manages warehouse facilities, inventory adjustments, and stock reconciliation'),
+    ('VENDOR_REPRESENTATIVE', 'External supplier managing consignment handovers and catalog items'),
+    ('CUSTOMER', 'End-client viewing consignment tracking status and delivery confirmations'),
+    ('SYSTEM', 'Internal trusted background identity for timers and system jobs')
+ON DUPLICATE KEY UPDATE description = VALUES(description);
+
+INSERT INTO app_users (username, password_hash, display_name, active, created_at) VALUES
+    ('gt_admin', 'ff7bd97b1a7789ddd2775122fd6817f3173672da9f802ceec57f284325bf589f', 'Global Administrator', TRUE, NOW()),
+    ('gt_coordinator', 'ff7bd97b1a7789ddd2775122fd6817f3173672da9f802ceec57f284325bf589f', 'Logistics Coordinator', TRUE, NOW()),
+    ('gt_customs', 'ff7bd97b1a7789ddd2775122fd6817f3173672da9f802ceec57f284325bf589f', 'Customs Clearance Officer', TRUE, NOW()),
+    ('gt_warehouse', 'ff7bd97b1a7789ddd2775122fd6817f3173672da9f802ceec57f284325bf589f', 'Warehouse Floor Manager', TRUE, NOW()),
+    ('gt_vendor', 'ff7bd97b1a7789ddd2775122fd6817f3173672da9f802ceec57f284325bf589f', 'Pacific Cargo Vendor Rep', TRUE, NOW()),
+    ('gt_customer', 'ff7bd97b1a7789ddd2775122fd6817f3173672da9f802ceec57f284325bf589f', 'Consignment Client', TRUE, NOW())
+ON DUPLICATE KEY UPDATE display_name = VALUES(display_name);
+
+INSERT INTO user_roles (username, role_name) VALUES
+    ('gt_admin', 'ADMIN'),
+    ('gt_coordinator', 'LOGISTICS_COORDINATOR'),
+    ('gt_customs', 'CUSTOMS_AGENT'),
+    ('gt_warehouse', 'WAREHOUSE_MANAGER'),
+    ('gt_vendor', 'VENDOR_REPRESENTATIVE'),
+    ('gt_customer', 'CUSTOMER')
+ON DUPLICATE KEY UPDATE role_name = VALUES(role_name);
