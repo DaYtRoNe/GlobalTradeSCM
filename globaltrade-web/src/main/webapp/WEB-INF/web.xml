@@ -87,11 +87,11 @@
     </security-constraint>
 
     <!-- ======================================================================= -->
-    <!-- Authentication Mechanism: HTTP Basic with GlobalTradeRealm              -->
+    <!-- Authentication Mechanism: HTTP Basic with GlobalTradeCustomRealm        -->
     <!-- ======================================================================= -->
     <login-config>
         <auth-method>BASIC</auth-method>
-        <realm-name>GlobalTradeRealm</realm-name>
+        <realm-name>GlobalTradeCustomRealm</realm-name>
     </login-config>
 
     <!-- ======================================================================= -->

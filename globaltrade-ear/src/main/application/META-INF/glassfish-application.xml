@@ -4,7 +4,7 @@
 <glassfish-application>
 
     <!-- Application-level Security Realm Configuration for Payara Server -->
-    <realm>GlobalTradeRealm</realm>
+    <realm>GlobalTradeCustomRealm</realm>
 
     <!-- Enables automatic mapping between JDBC Realm group names and same-named Jakarta EE security roles -->
     <property name="default-role-mapping" value="true">
