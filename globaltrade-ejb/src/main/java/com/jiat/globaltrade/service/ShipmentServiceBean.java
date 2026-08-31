@@ -5,15 +5,19 @@ import com.jiat.globaltrade.entity.Shipment;
 import com.jiat.globaltrade.entity.Vendor;
 import com.jiat.globaltrade.entity.enums.ShipmentStatus;
 import com.jiat.globaltrade.exception.InsufficientInventoryException;
+import com.jiat.globaltrade.exception.ResourceNotFoundException;
+import com.jiat.globaltrade.exception.ShipmentAccessDeniedException;
 import com.jiat.globaltrade.interceptor.BusinessAuditInterceptor;
 import com.jiat.globaltrade.interceptor.BusinessValidationInterceptor;
 import com.jiat.globaltrade.interceptor.PerformanceMonitoringInterceptor;
 import com.jiat.globaltrade.interceptor.TradeComplianceInterceptor;
 import com.jiat.globaltrade.security.SecurityRoles;
+import jakarta.annotation.Resource;
 import jakarta.annotation.security.DeclareRoles;
 import jakarta.annotation.security.PermitAll;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.ejb.EJB;
+import jakarta.ejb.SessionContext;
 import jakarta.ejb.Stateless;
 import jakarta.ejb.TransactionAttribute;
 import jakarta.ejb.TransactionAttributeType;
@@ -47,6 +51,9 @@ public class ShipmentServiceBean {
 
     private static final Logger LOGGER = Logger.getLogger(ShipmentServiceBean.class.getName());
 
+    @Resource
+    private SessionContext sessionContext;
+
     @PersistenceContext(unitName = "GlobalTradePU")
     private EntityManager em;
 
@@ -76,6 +83,55 @@ public class ShipmentServiceBean {
     public List<Shipment> findAllShipments() {
         return em.createQuery("SELECT s FROM Shipment s ORDER BY s.createdAt DESC", Shipment.class)
                 .getResultList();
+    }
+
+    /**
+     * Customer-scoped query: returns only shipments assigned to the authenticated customer.
+     * The username is securely derived from the SessionContext caller principal.
+     */
+    @RolesAllowed(SecurityRoles.CUSTOMER)
+    @TransactionAttribute(TransactionAttributeType.SUPPORTS)
+    public List<Shipment> findMyShipments() {
+        String callerUsername = sessionContext.getCallerPrincipal() != null ? sessionContext.getCallerPrincipal().getName() : "ANONYMOUS";
+        LOGGER.log(Level.INFO, "[ShipmentServiceBean] Fetching customer-scoped shipments for caller: {0}", callerUsername);
+        return em.createQuery("SELECT s FROM Shipment s WHERE s.customerUsername = :username ORDER BY s.createdAt DESC", Shipment.class)
+                .setParameter("username", callerUsername)
+                .getResultList();
+    }
+
+    /**
+     * Secure shipment lookup enforcing fine-grained customer ownership.
+     * - Staff roles (ADMIN, LOGISTICS_COORDINATOR, CUSTOMS_AGENT, WAREHOUSE_MANAGER): allowed.
+     * - CUSTOMER role: allowed ONLY if the shipment is assigned to the authenticated customer principal.
+     */
+    @RolesAllowed({
+            SecurityRoles.ADMIN,
+            SecurityRoles.LOGISTICS_COORDINATOR,
+            SecurityRoles.CUSTOMS_AGENT,
+            SecurityRoles.WAREHOUSE_MANAGER,
+            SecurityRoles.CUSTOMER
+    })
+    @TransactionAttribute(TransactionAttributeType.SUPPORTS)
+    public Shipment findShipmentForAuthorizedCaller(Long id) throws ResourceNotFoundException, ShipmentAccessDeniedException {
+        if (id == null) {
+            throw new ResourceNotFoundException("Shipment", id);
+        }
+
+        Shipment shipment = em.find(Shipment.class, id);
+        if (shipment == null) {
+            throw new ResourceNotFoundException("Shipment", id);
+        }
+
+        if (sessionContext.isCallerInRole(SecurityRoles.CUSTOMER)) {
+            String callerUsername = sessionContext.getCallerPrincipal() != null ? sessionContext.getCallerPrincipal().getName() : "ANONYMOUS";
+            if (shipment.getCustomerUsername() == null || !shipment.getCustomerUsername().equals(callerUsername)) {
+                LOGGER.log(Level.WARNING, "[ShipmentServiceBean] Customer {0} denied access to unowned Shipment #{1}",
+                        new Object[]{callerUsername, id});
+                throw new ShipmentAccessDeniedException(id, callerUsername);
+            }
+        }
+
+        return shipment;
     }
 
     /**

@@ -60,6 +60,75 @@
     </security-constraint>
 
     <!-- ======================================================================= -->
+    <!-- Phase 10B: Production Business REST API Protection                      -->
+    <!-- ======================================================================= -->
+    <security-constraint>
+        <display-name>Production Vendors API Constraint</display-name>
+        <web-resource-collection>
+            <web-resource-name>Protected Vendors API</web-resource-name>
+            <url-pattern>/api/vendors/*</url-pattern>
+        </web-resource-collection>
+        <auth-constraint>
+            <role-name>ADMIN</role-name>
+            <role-name>LOGISTICS_COORDINATOR</role-name>
+            <role-name>VENDOR_REPRESENTATIVE</role-name>
+        </auth-constraint>
+    </security-constraint>
+
+    <security-constraint>
+        <display-name>Production Inventory API Constraint</display-name>
+        <web-resource-collection>
+            <web-resource-name>Protected Inventory API</web-resource-name>
+            <url-pattern>/api/inventory/*</url-pattern>
+        </web-resource-collection>
+        <auth-constraint>
+            <role-name>ADMIN</role-name>
+            <role-name>WAREHOUSE_MANAGER</role-name>
+            <role-name>LOGISTICS_COORDINATOR</role-name>
+        </auth-constraint>
+    </security-constraint>
+
+    <security-constraint>
+        <display-name>Production Shipments API Constraint</display-name>
+        <web-resource-collection>
+            <web-resource-name>Protected Shipments API</web-resource-name>
+            <url-pattern>/api/shipments/*</url-pattern>
+        </web-resource-collection>
+        <auth-constraint>
+            <role-name>ADMIN</role-name>
+            <role-name>LOGISTICS_COORDINATOR</role-name>
+            <role-name>CUSTOMS_AGENT</role-name>
+            <role-name>WAREHOUSE_MANAGER</role-name>
+            <role-name>CUSTOMER</role-name>
+        </auth-constraint>
+    </security-constraint>
+
+    <security-constraint>
+        <display-name>Production Customs API Constraint</display-name>
+        <web-resource-collection>
+            <web-resource-name>Protected Customs API</web-resource-name>
+            <url-pattern>/api/customs/*</url-pattern>
+        </web-resource-collection>
+        <auth-constraint>
+            <role-name>ADMIN</role-name>
+            <role-name>CUSTOMS_AGENT</role-name>
+            <role-name>LOGISTICS_COORDINATOR</role-name>
+            <role-name>CUSTOMER</role-name>
+        </auth-constraint>
+    </security-constraint>
+
+    <security-constraint>
+        <display-name>Production Audit Logs API Constraint</display-name>
+        <web-resource-collection>
+            <web-resource-name>Protected Audit Logs API</web-resource-name>
+            <url-pattern>/api/audit-logs/*</url-pattern>
+        </web-resource-collection>
+        <auth-constraint>
+            <role-name>ADMIN</role-name>
+        </auth-constraint>
+    </security-constraint>
+
+    <!-- ======================================================================= -->
     <!-- Diagnostic Security Constraints: Transactions & Interceptors Testing   -->
     <!-- Protects all HTTP methods under /api/transactions/* and /api/interceptors/* -->
     <!-- Requires ADMIN role to invoke diagnostic execution of secured EJBs      -->

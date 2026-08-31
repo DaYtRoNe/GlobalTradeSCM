@@ -79,6 +79,52 @@ public final class TestDeployments {
                     </auth-constraint>
                 </security-constraint>
 
+                <!-- Constraint 5: Shipment Data Probe -->
+                <security-constraint>
+                    <display-name>Shipment Data Probe Protection</display-name>
+                    <web-resource-collection>
+                        <web-resource-name>Shipment Endpoint</web-resource-name>
+                        <url-pattern>/security-test/shipment/*</url-pattern>
+                    </web-resource-collection>
+                    <auth-constraint>
+                        <role-name>ADMIN</role-name>
+                        <role-name>LOGISTICS_COORDINATOR</role-name>
+                        <role-name>CUSTOMS_AGENT</role-name>
+                        <role-name>WAREHOUSE_MANAGER</role-name>
+                        <role-name>CUSTOMER</role-name>
+                    </auth-constraint>
+                </security-constraint>
+
+                <!-- Constraint 6: Customs Docs Probe -->
+                <security-constraint>
+                    <display-name>Customs Docs Probe Protection</display-name>
+                    <web-resource-collection>
+                        <web-resource-name>Customs Docs Endpoint</web-resource-name>
+                        <url-pattern>/security-test/customs-docs/*</url-pattern>
+                    </web-resource-collection>
+                    <auth-constraint>
+                        <role-name>ADMIN</role-name>
+                        <role-name>CUSTOMS_AGENT</role-name>
+                        <role-name>LOGISTICS_COORDINATOR</role-name>
+                        <role-name>CUSTOMER</role-name>
+                    </auth-constraint>
+                </security-constraint>
+
+                <!-- Constraint 7: Staff Data Probe -->
+                <security-constraint>
+                    <display-name>Staff Data Probe Protection</display-name>
+                    <web-resource-collection>
+                        <web-resource-name>Staff Data Endpoint</web-resource-name>
+                        <url-pattern>/security-test/staff-data/*</url-pattern>
+                    </web-resource-collection>
+                    <auth-constraint>
+                        <role-name>ADMIN</role-name>
+                        <role-name>LOGISTICS_COORDINATOR</role-name>
+                        <role-name>CUSTOMS_AGENT</role-name>
+                        <role-name>WAREHOUSE_MANAGER</role-name>
+                    </auth-constraint>
+                </security-constraint>
+
                 <!-- Authentication Mechanism: HTTP Basic with GlobalTradeCustomRealm -->
                 <login-config>
                     <auth-method>BASIC</auth-method>

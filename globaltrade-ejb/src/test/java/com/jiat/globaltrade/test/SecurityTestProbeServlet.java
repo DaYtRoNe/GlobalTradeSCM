@@ -1,10 +1,20 @@
 package com.jiat.globaltrade.test;
 
+import com.jiat.globaltrade.entity.AuditLog;
+import com.jiat.globaltrade.entity.CustomsDocument;
+import com.jiat.globaltrade.entity.InventoryItem;
+import com.jiat.globaltrade.entity.Shipment;
 import com.jiat.globaltrade.entity.Vendor;
 import com.jiat.globaltrade.exception.ResourceNotFoundException;
+import com.jiat.globaltrade.exception.ShipmentAccessDeniedException;
 import com.jiat.globaltrade.exception.VendorAccessDeniedException;
 import com.jiat.globaltrade.security.SecurityRoles;
 import com.jiat.globaltrade.security.VendorAuthorizationServiceBean;
+import com.jiat.globaltrade.service.AuditServiceBean;
+import com.jiat.globaltrade.service.CustomsServiceBean;
+import com.jiat.globaltrade.service.InventoryServiceBean;
+import com.jiat.globaltrade.service.ShipmentServiceBean;
+import com.jiat.globaltrade.service.VendorServiceBean;
 import jakarta.ejb.EJB;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
@@ -13,13 +23,13 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.security.Principal;
+import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * Test-only HTTP Servlet probe used by SecurityAuthenticationIT to exercise
- * real Payara container authentication (GlobalTradeCustomRealm), declarative web/EJB RBAC,
- * and fine-grained programmatic vendor authorization.
+ * Test-only HTTP Servlet probe used by integration tests to exercise
+ * container authentication, declarative RBAC, and fine-grained data authorization.
  */
 @WebServlet(urlPatterns = {"/security-test/*"})
 public class SecurityTestProbeServlet extends HttpServlet {
@@ -29,6 +39,21 @@ public class SecurityTestProbeServlet extends HttpServlet {
 
     @EJB
     private VendorAuthorizationServiceBean vendorAuthService;
+
+    @EJB
+    private ShipmentServiceBean shipmentService;
+
+    @EJB
+    private CustomsServiceBean customsService;
+
+    @EJB
+    private VendorServiceBean vendorService;
+
+    @EJB
+    private InventoryServiceBean inventoryService;
+
+    @EJB
+    private AuditServiceBean auditService;
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws IOException {
@@ -106,7 +131,99 @@ public class SecurityTestProbeServlet extends HttpServlet {
             return;
         }
 
+        if ("/shipment/my-shipments".equals(pathInfo)) {
+            try {
+                List<Shipment> shipments = shipmentService.findMyShipments();
+                StringBuilder sb = new StringBuilder("[");
+                for (int i = 0; i < shipments.size(); i++) {
+                    Shipment s = shipments.get(i);
+                    sb.append(String.format("{\"id\":%d,\"trackingNumber\":\"%s\",\"customerUsername\":\"%s\"}",
+                            s.getId(), s.getTrackingNumber(), s.getCustomerUsername()));
+                    if (i < shipments.size() - 1) sb.append(",");
+                }
+                sb.append("]");
+                out.write(sb.toString());
+            } catch (Exception e) {
+                LOGGER.log(Level.WARNING, "[SecurityTestProbeServlet] Error in my-shipments for caller: " + username, e);
+                resp.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                out.write(String.format("{\"status\":\"FORBIDDEN\",\"message\":\"%s\"}", e.getMessage()));
+            }
+            return;
+        }
+
+        if (pathInfo.startsWith("/shipment/")) {
+            String idStr = pathInfo.substring("/shipment/".length());
+            try {
+                Long shipmentId = Long.parseLong(idStr);
+                Shipment s = shipmentService.findShipmentForAuthorizedCaller(shipmentId);
+                out.write(String.format(
+                        "{\"status\":\"SUCCESS\",\"id\":%d,\"trackingNumber\":\"%s\",\"customerUsername\":\"%s\",\"caller\":\"%s\"}",
+                        s.getId(), s.getTrackingNumber(), s.getCustomerUsername() != null ? s.getCustomerUsername() : "null", username
+                ));
+            } catch (ShipmentAccessDeniedException e) {
+                LOGGER.log(Level.WARNING, "[SecurityTestProbeServlet] Access denied to shipment #{0} for caller: {1}",
+                        new Object[]{idStr, username});
+                resp.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                out.write(String.format("{\"status\":\"FORBIDDEN\",\"message\":\"%s\"}", e.getMessage()));
+            } catch (ResourceNotFoundException e) {
+                resp.setStatus(HttpServletResponse.SC_NOT_FOUND);
+                out.write(String.format("{\"status\":\"NOT_FOUND\",\"message\":\"%s\"}", e.getMessage()));
+            } catch (Exception e) {
+                LOGGER.log(Level.SEVERE, "[SecurityTestProbeServlet] Error invoking shipment authorization", e);
+                resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                out.write(String.format("{\"status\":\"ERROR\",\"message\":\"%s\"}", e.getMessage()));
+            }
+            return;
+        }
+
+        if (pathInfo.startsWith("/customs-docs/")) {
+            String idStr = pathInfo.substring("/customs-docs/".length());
+            try {
+                Long shipmentId = Long.parseLong(idStr);
+                List<CustomsDocument> docs = customsService.findDocumentsByShipmentForCaller(shipmentId);
+                out.write(String.format("{\"status\":\"SUCCESS\",\"shipmentId\":%d,\"docCount\":%d}", shipmentId, docs.size()));
+            } catch (ShipmentAccessDeniedException e) {
+                LOGGER.log(Level.WARNING, "[SecurityTestProbeServlet] Access denied to customs for shipment #{0} for caller: {1}",
+                        new Object[]{idStr, username});
+                resp.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                out.write(String.format("{\"status\":\"FORBIDDEN\",\"message\":\"%s\"}", e.getMessage()));
+            } catch (ResourceNotFoundException e) {
+                resp.setStatus(HttpServletResponse.SC_NOT_FOUND);
+                out.write(String.format("{\"status\":\"NOT_FOUND\",\"message\":\"%s\"}", e.getMessage()));
+            } catch (Exception e) {
+                LOGGER.log(Level.SEVERE, "[SecurityTestProbeServlet] Error invoking customs authorization", e);
+                resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                out.write(String.format("{\"status\":\"ERROR\",\"message\":\"%s\"}", e.getMessage()));
+            }
+            return;
+        }
+
+        if ("/staff-data/vendors".equals(pathInfo)) {
+            List<Vendor> list = vendorService.findAllVendors();
+            out.write(String.format("{\"status\":\"SUCCESS\",\"count\":%d}", list.size()));
+            return;
+        }
+
+        if ("/staff-data/inventory".equals(pathInfo)) {
+            List<InventoryItem> list = inventoryService.findAllInventoryItems();
+            out.write(String.format("{\"status\":\"SUCCESS\",\"count\":%d}", list.size()));
+            return;
+        }
+
+        if ("/staff-data/customs".equals(pathInfo)) {
+            List<CustomsDocument> list = customsService.findAllCustomsDocuments();
+            out.write(String.format("{\"status\":\"SUCCESS\",\"count\":%d}", list.size()));
+            return;
+        }
+
+        if ("/staff-data/audit-logs".equals(pathInfo)) {
+            List<AuditLog> list = auditService.getRecentLogs(50);
+            out.write(String.format("{\"status\":\"SUCCESS\",\"count\":%d}", list.size()));
+            return;
+        }
+
         resp.setStatus(HttpServletResponse.SC_NOT_FOUND);
         out.write("{\"status\":\"NOT_FOUND\",\"message\":\"Unknown probe endpoint\"}");
     }
 }
+

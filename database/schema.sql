@@ -57,56 +57,6 @@ CREATE TABLE IF NOT EXISTS inventory_items (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- -----------------------------------------------------------------------------
--- Table: shipments
--- -----------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS shipments (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    tracking_number VARCHAR(100) NOT NULL UNIQUE,
-    origin VARCHAR(100) NOT NULL,
-    destination VARCHAR(100) NOT NULL,
-    shipment_status VARCHAR(30) NOT NULL DEFAULT 'PENDING',
-    expected_delivery_date DATE,
-    actual_delivery_date DATE,
-    vendor_id BIGINT NOT NULL,
-    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME NULL,
-    CONSTRAINT fk_shipment_vendor FOREIGN KEY (vendor_id)
-        REFERENCES vendors (id)
-        ON DELETE RESTRICT
-        ON UPDATE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- -----------------------------------------------------------------------------
--- Table: customs_documents
--- -----------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS customs_documents (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    document_number VARCHAR(100) NOT NULL UNIQUE,
-    document_type VARCHAR(50) NOT NULL,
-    status VARCHAR(30) NOT NULL DEFAULT 'PENDING',
-    submission_deadline DATE,
-    shipment_id BIGINT NOT NULL,
-    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT fk_customs_shipment FOREIGN KEY (shipment_id)
-        REFERENCES shipments (id)
-        ON DELETE CASCADE
-        ON UPDATE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- -----------------------------------------------------------------------------
--- Table: audit_logs
--- -----------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS audit_logs (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    action VARCHAR(100) NOT NULL,
-    entity_type VARCHAR(100) NOT NULL,
-    entity_id BIGINT,
-    performed_by VARCHAR(100),
-    timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    details VARCHAR(1000)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- -----------------------------------------------------------------------------
 -- Table: app_users (Authentication credentials for Payara JDBC Realm)
 -- -----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS app_users (
@@ -141,6 +91,62 @@ CREATE TABLE IF NOT EXISTS user_roles (
         REFERENCES security_roles (role_name)
         ON DELETE CASCADE
         ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- -----------------------------------------------------------------------------
+-- Table: shipments
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS shipments (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    tracking_number VARCHAR(100) NOT NULL UNIQUE,
+    origin VARCHAR(100) NOT NULL,
+    destination VARCHAR(100) NOT NULL,
+    shipment_status VARCHAR(30) NOT NULL DEFAULT 'PENDING',
+    expected_delivery_date DATE,
+    actual_delivery_date DATE,
+    vendor_id BIGINT NOT NULL,
+    customer_username VARCHAR(50) NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NULL,
+    INDEX idx_shipments_customer (customer_username),
+    CONSTRAINT fk_shipment_vendor FOREIGN KEY (vendor_id)
+        REFERENCES vendors (id)
+        ON DELETE RESTRICT
+        ON UPDATE CASCADE,
+    CONSTRAINT fk_shipment_customer FOREIGN KEY (customer_username)
+        REFERENCES app_users (username)
+        ON DELETE SET NULL
+        ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- -----------------------------------------------------------------------------
+-- Table: customs_documents
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS customs_documents (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    document_number VARCHAR(100) NOT NULL UNIQUE,
+    document_type VARCHAR(50) NOT NULL,
+    status VARCHAR(30) NOT NULL DEFAULT 'PENDING',
+    submission_deadline DATE,
+    shipment_id BIGINT NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_customs_shipment FOREIGN KEY (shipment_id)
+        REFERENCES shipments (id)
+        ON DELETE CASCADE
+        ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- -----------------------------------------------------------------------------
+-- Table: audit_logs
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS audit_logs (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    action VARCHAR(100) NOT NULL,
+    entity_type VARCHAR(100) NOT NULL,
+    entity_id BIGINT,
+    performed_by VARCHAR(100),
+    timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    details VARCHAR(1000)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- -----------------------------------------------------------------------------
@@ -185,10 +191,10 @@ VALUES
     ('SKU-SOL-003', 'Photovoltaic Inverter 5kW', 80, 25, 650.00, 3, NOW())
 ON DUPLICATE KEY UPDATE item_name = VALUES(item_name);
 
-INSERT INTO shipments (tracking_number, origin, destination, shipment_status, expected_delivery_date, actual_delivery_date, vendor_id, created_at)
+INSERT INTO shipments (tracking_number, origin, destination, shipment_status, expected_delivery_date, actual_delivery_date, vendor_id, customer_username, created_at)
 VALUES
-    ('TRK-2026-001', 'Tokyo, Japan', 'Singapore', 'IN_TRANSIT', DATE_ADD(CURDATE(), INTERVAL 5 DAY), NULL, 3, NOW()),
-    ('TRK-2026-002', 'Hamburg, Germany', 'Rotterdam, Netherlands', 'DELIVERED', DATE_SUB(CURDATE(), INTERVAL 2 DAY), DATE_SUB(CURDATE(), INTERVAL 2 DAY), 2, NOW())
+    ('TRK-2026-001', 'Tokyo, Japan', 'Singapore', 'IN_TRANSIT', DATE_ADD(CURDATE(), INTERVAL 5 DAY), NULL, 3, 'gt_customer', NOW()),
+    ('TRK-2026-002', 'Hamburg, Germany', 'Rotterdam, Netherlands', 'DELIVERED', DATE_SUB(CURDATE(), INTERVAL 2 DAY), DATE_SUB(CURDATE(), INTERVAL 2 DAY), 2, NULL, NOW())
 ON DUPLICATE KEY UPDATE origin = VALUES(origin);
 
 INSERT INTO customs_documents (document_number, document_type, status, submission_deadline, shipment_id, created_at)

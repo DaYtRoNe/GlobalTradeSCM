@@ -3,15 +3,19 @@ package com.jiat.globaltrade.service;
 import com.jiat.globaltrade.entity.CustomsDocument;
 import com.jiat.globaltrade.entity.Shipment;
 import com.jiat.globaltrade.entity.enums.CustomsDocumentStatus;
+import com.jiat.globaltrade.exception.ResourceNotFoundException;
+import com.jiat.globaltrade.exception.ShipmentAccessDeniedException;
 import com.jiat.globaltrade.interceptor.BusinessAuditInterceptor;
 import com.jiat.globaltrade.interceptor.BusinessValidationInterceptor;
 import com.jiat.globaltrade.interceptor.PerformanceMonitoringInterceptor;
 import com.jiat.globaltrade.interceptor.TradeComplianceInterceptor;
 import com.jiat.globaltrade.security.SecurityRoles;
+import jakarta.annotation.Resource;
 import jakarta.annotation.security.DeclareRoles;
 import jakarta.annotation.security.PermitAll;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.ejb.EJB;
+import jakarta.ejb.SessionContext;
 import jakarta.ejb.Stateless;
 import jakarta.ejb.TransactionAttribute;
 import jakarta.ejb.TransactionAttributeType;
@@ -44,6 +48,9 @@ public class CustomsServiceBean {
 
     private static final Logger LOGGER = Logger.getLogger(CustomsServiceBean.class.getName());
 
+    @Resource
+    private SessionContext sessionContext;
+
     @PersistenceContext(unitName = "GlobalTradePU")
     private EntityManager em;
 
@@ -63,14 +70,59 @@ public class CustomsServiceBean {
     }
 
     /**
+     * Read-only global list of all customs documents for authorized staff.
+     */
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.CUSTOMS_AGENT, SecurityRoles.LOGISTICS_COORDINATOR})
+    @TransactionAttribute(TransactionAttributeType.SUPPORTS)
+    public List<CustomsDocument> findAllCustomsDocuments() {
+        return em.createQuery("SELECT c FROM CustomsDocument c ORDER BY c.createdAt DESC", CustomsDocument.class)
+                .getResultList();
+    }
+
+    /**
      * Read-only query for all documents associated with a shipment.
      */
     @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.CUSTOMS_AGENT, SecurityRoles.LOGISTICS_COORDINATOR})
     @TransactionAttribute(TransactionAttributeType.SUPPORTS)
     public List<CustomsDocument> findDocumentsByShipment(Long shipmentId) {
-        return em.createQuery("SELECT c FROM CustomsDocument c WHERE c.shipment.id = :shipmentId", CustomsDocument.class)
+        return em.createQuery("SELECT c FROM CustomsDocument c WHERE c.shipment.id = :shipmentId ORDER BY c.createdAt ASC", CustomsDocument.class)
                 .setParameter("shipmentId", shipmentId)
                 .getResultList();
+    }
+
+    /**
+     * Secure customs document query enforcing customer shipment ownership.
+     * - Staff roles: allowed to view customs documents for any shipment.
+     * - CUSTOMER role: allowed ONLY if the parent shipment belongs to the authenticated caller.
+     */
+    @RolesAllowed({
+            SecurityRoles.ADMIN,
+            SecurityRoles.CUSTOMS_AGENT,
+            SecurityRoles.LOGISTICS_COORDINATOR,
+            SecurityRoles.CUSTOMER
+    })
+    @TransactionAttribute(TransactionAttributeType.SUPPORTS)
+    public List<CustomsDocument> findDocumentsByShipmentForCaller(Long shipmentId)
+            throws ResourceNotFoundException, ShipmentAccessDeniedException {
+        if (shipmentId == null) {
+            throw new ResourceNotFoundException("Shipment", shipmentId);
+        }
+
+        Shipment shipment = em.find(Shipment.class, shipmentId);
+        if (shipment == null) {
+            throw new ResourceNotFoundException("Shipment", shipmentId);
+        }
+
+        if (sessionContext.isCallerInRole(SecurityRoles.CUSTOMER)) {
+            String callerUsername = sessionContext.getCallerPrincipal() != null ? sessionContext.getCallerPrincipal().getName() : "ANONYMOUS";
+            if (shipment.getCustomerUsername() == null || !shipment.getCustomerUsername().equals(callerUsername)) {
+                LOGGER.log(Level.WARNING, "[CustomsServiceBean] Customer {0} denied access to customs for unowned Shipment #{1}",
+                        new Object[]{callerUsername, shipmentId});
+                throw new ShipmentAccessDeniedException(shipmentId, callerUsername);
+            }
+        }
+
+        return findDocumentsByShipment(shipmentId);
     }
 
     /**

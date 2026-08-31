@@ -16,6 +16,7 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import java.io.Serializable;
 import java.security.Principal;
+import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -129,6 +130,33 @@ public class VendorAuthorizationServiceBean implements Serializable {
             throw new ResourceNotFoundException("Vendor", vendorId);
         }
 
+        return vendor;
+    }
+
+    /**
+     * Looks up the vendor entity mapped to the authenticated VENDOR_REPRESENTATIVE.
+     * Allows vendor representative to query their own profile without providing a hardcoded ID.
+     */
+    @RolesAllowed(SecurityRoles.VENDOR_REPRESENTATIVE)
+    @TransactionAttribute(TransactionAttributeType.SUPPORTS)
+    public Vendor findMappedVendorForCaller() throws VendorAccessDeniedException, ResourceNotFoundException {
+        String username = sessionContext.getCallerPrincipal() != null ? sessionContext.getCallerPrincipal().getName() : "ANONYMOUS";
+
+        List<?> results = em.createNativeQuery("SELECT vendor_id FROM vendor_user_access WHERE username = ?1")
+                .setParameter(1, username)
+                .getResultList();
+
+        if (results == null || results.isEmpty()) {
+            LOGGER.log(Level.WARNING, "[VendorAuthorizationServiceBean] No vendor mapping found for user: {0}", username);
+            throw new VendorAccessDeniedException(0L, username);
+        }
+
+        Number vendorIdNum = (Number) results.get(0);
+        Long vendorId = vendorIdNum.longValue();
+        Vendor vendor = em.find(Vendor.class, vendorId);
+        if (vendor == null) {
+            throw new ResourceNotFoundException("Vendor", vendorId);
+        }
         return vendor;
     }
 

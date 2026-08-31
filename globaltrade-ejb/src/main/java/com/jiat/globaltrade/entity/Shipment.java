@@ -52,6 +52,9 @@ public class Shipment implements Serializable {
     @JoinColumn(name = "vendor_id", nullable = false)
     private Vendor vendor;
 
+    @Column(name = "customer_username", length = 50)
+    private String customerUsername;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -67,6 +70,15 @@ public class Shipment implements Serializable {
         this.destination = destination;
         this.shipmentStatus = shipmentStatus != null ? shipmentStatus : ShipmentStatus.PENDING;
         this.vendor = vendor;
+    }
+
+    public Shipment(String trackingNumber, String origin, String destination, ShipmentStatus shipmentStatus, Vendor vendor, String customerUsername) {
+        this.trackingNumber = trackingNumber;
+        this.origin = origin;
+        this.destination = destination;
+        this.shipmentStatus = shipmentStatus != null ? shipmentStatus : ShipmentStatus.PENDING;
+        this.vendor = vendor;
+        this.customerUsername = customerUsername;
     }
 
     @PrePersist
@@ -146,6 +158,14 @@ public class Shipment implements Serializable {
 
     public void setVendor(Vendor vendor) {
         this.vendor = vendor;
+    }
+
+    public String getCustomerUsername() {
+        return customerUsername;
+    }
+
+    public void setCustomerUsername(String customerUsername) {
+        this.customerUsername = customerUsername;
     }
 
     public LocalDateTime getCreatedAt() {
