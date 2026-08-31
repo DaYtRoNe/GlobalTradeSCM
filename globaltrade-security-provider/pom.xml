@@ -34,7 +34,7 @@
             <artifactId>glassfish-ee-api</artifactId>
             <version>6.2025.11</version>
             <scope>system</scope>
-            <systemPath>C:/payara6/glassfish/modules/glassfish-ee-api.jar</systemPath>
+            <systemPath>${payara.home}/glassfish/modules/glassfish-ee-api.jar</systemPath>
         </dependency>
 
         <!-- Payara Server Security Implementation Core -->
@@ -43,7 +43,7 @@
             <artifactId>security</artifactId>
             <version>6.2025.11</version>
             <scope>system</scope>
-            <systemPath>C:/payara6/glassfish/modules/security.jar</systemPath>
+            <systemPath>${payara.home}/glassfish/modules/security.jar</systemPath>
         </dependency>
 
     </dependencies>

@@ -21,6 +21,7 @@
         <jakartaee.version>10.0.0</jakartaee.version>
         <junit.jupiter.version>5.10.2</junit.jupiter.version>
         <arquillian.bom.version>1.9.3.Final</arquillian.bom.version>
+        <payara.home>C:/payara6</payara.home>
         <payara.arquillian.version>3.1</payara.arquillian.version>
         <maven.failsafe.version>3.2.5</maven.failsafe.version>
         <maven.surefire.version>3.2.5</maven.surefire.version>
