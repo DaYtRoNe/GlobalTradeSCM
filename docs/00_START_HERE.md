@@ -120,12 +120,43 @@ flowchart TD
 
 ## 6. Recommended Documentation Reading Order
 
+The complete documentation suite contains 26 structured learning guides (numbered 00 through 25) grouped by topic:
+
+### Phase 9A — Project Foundation & Architecture
 1. **`00_START_HERE.md`** *(This file)*: High-level orientation, learning roadmap, and terminology preview.
 2. **`01_PROJECT_OVERVIEW.md`**: Business domain, system objectives, actors, and high-level workflows.
 3. **`02_FEATURES_AND_USE_CASES.md`**: Detailed inventory of all implemented features, user roles, and business rules.
 4. **`03_TECHNOLOGY_STACK.md`**: Comprehensive technology guide (WHAT, WHY, HOW, and WHERE).
 5. **`04_SYSTEM_ARCHITECTURE.md`**: Layered architectural design, request lifecycles, and container services.
 6. **`05_PROJECT_MODULE_STRUCTURE.md`**: Maven module anatomy, packaging, and deployment topology.
+
+### Phase 9B — Core Jakarta EE Implementation
+7. **`06_DATABASE_AND_DOMAIN_MODEL.md`**: Relational database schema, table structures, and entity mappings.
+8. **`07_JPA_PERSISTENCE.md`**: JPA EntityManager, EclipseLink, JPQL queries, and transaction caching.
+9. **`08_EJB_SERVICES_AND_BUSINESS_LOGIC.md`**: Stateless EJB services, dependency injection, and operations.
+10. **`09_TRANSACTION_MANAGEMENT.md`**: CMT vs BMT, transaction attributes (`REQUIRED`, `MANDATORY`, `REQUIRES_NEW`), and rollbacks.
+11. **`10_TIMER_SERVICES.md`**: Declarative `@Schedule` supply chain monitoring and programmatic alert timers.
+12. **`11_INTERCEPTORS.md`**: `@AroundInvoke` interceptors for validation, trade compliance, metrics, and audit.
+
+### Phase 9C — Security, Exceptions & REST APIs
+13. **`12_SECURITY_AUTHENTICATION_JAAS.md`**: HTTP Basic Auth, custom Payara JAAS Realm and LoginModule.
+14. **`13_RBAC_AND_FINE_GRAINED_AUTHORIZATION.md`**: Declarative RBAC, `SessionContext`, and vendor data isolation.
+15. **`14_EXCEPTION_HANDLING.md`**: Centralized JAX-RS `ExceptionMapper` architecture and sanitized error JSON.
+16. **`15_API_REFERENCE.md`**: Complete reference catalog of all 37 REST API endpoints.
+17. **`16_REQUEST_AND_BUSINESS_FLOWS.md`**: 9 end-to-end runtime request sequence diagrams and unified mental model.
+
+### Phase 9D — Testing, Deployment & Operations
+18. **`17_TESTING_STRATEGY.md`**: Testing levels, Surefire vs Failsafe, and in-container testing strategy.
+19. **`18_JUNIT_ARQUILLIAN_TESTS.md`**: JUnit 5 + Arquillian architecture and audit of all 16 integration tests.
+20. **`19_PAYARA_DEPLOYMENT_AND_CONFIGURATION.md`**: Payara Server 6 setup, JDBC pool, JAAS realm, and EAR deployment.
+21. **`20_SECURITY_AND_PRODUCTION_CONSIDERATIONS.md`**: Prototype implementation vs enterprise production standards.
+22. **`21_TROUBLESHOOTING_GUIDE.md`**: Systematic diagnostic checklists and solutions for 21 failure scenarios.
+
+### Phase 9E — Traceability, Viva & Demonstration
+23. **`22_ASSIGNMENT_REQUIREMENT_TRACEABILITY.md`**: Implementation evidence map tracing all capabilities to code and tests.
+24. **`23_VIVA_PREPARATION.md`**: Multi-level viva questions and answers from beginner to difficult examiner topics.
+25. **`24_DEMO_CHECKLIST.md`**: 10-minute and 20-minute viva live demonstration runbooks and safety rules.
+26. **`25_GLOSSARY.md`**: Complete alphabetical concept dictionary and project-specific glossary.
 
 ---
 

@@ -94,7 +94,7 @@ This document provides a comprehensive catalogue of all implemented business fea
 ### 1.7 EJB Timer Services
 - **Description**: Automated, background scheduled task execution for enterprise monitoring and event-driven tracking alerts.
 - **Key Java Classes** in `globaltrade-ejb/src/main/java/com/jiat/globaltrade/timer/`:
-  - `SupplyChainMonitoringTimerBean`: Declarative persistent timer running every 15 minutes (`@Schedule(hour = "*", minute = "*/15", persistent = true)`) inspecting pending shipments and low-stock items.
+  - `SupplyChainMonitoringTimerBean`: Declarative persistent timer running every 5 minutes (`@Schedule(hour = "*", minute = "*/5", second = "0", persistent = true)`) inspecting pending shipments and low-stock items.
   - `ShipmentAlertTimerBean`: Programmatic single-action timer service using `TimerService.createSingleActionTimer(durationMs, timerConfig)` creating deferred alerts for shipments.
 - **Key Business Rules**:
   - Background timers execute autonomously under system identity without requiring external HTTP requests.
