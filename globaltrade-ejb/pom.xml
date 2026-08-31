@@ -28,6 +28,20 @@
             <scope>provided</scope>
         </dependency>
 
+        <!-- JUnit 5 Jupiter -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- Arquillian JUnit 5 Integration -->
+        <dependency>
+            <groupId>org.jboss.arquillian.junit5</groupId>
+            <artifactId>arquillian-junit5-container</artifactId>
+            <scope>test</scope>
+        </dependency>
+
     </dependencies>
 
     <build>
@@ -48,5 +62,57 @@
 
         </plugins>
     </build>
+
+    <profiles>
+        <!-- =================================================================== -->
+        <!-- Integration Testing Profile: JUnit 5 + Arquillian Payara Server Remote -->
+        <!-- Activated explicitly via: mvn -Parquillian-payara verify           -->
+        <!-- =================================================================== -->
+        <profile>
+            <id>arquillian-payara</id>
+            <dependencies>
+                <!-- JUnit 5 Jupiter API & Engine -->
+                <dependency>
+                    <groupId>org.junit.jupiter</groupId>
+                    <artifactId>junit-jupiter</artifactId>
+                    <scope>test</scope>
+                </dependency>
+
+                <!-- Arquillian JUnit 5 Integration -->
+                <dependency>
+                    <groupId>org.jboss.arquillian.junit5</groupId>
+                    <artifactId>arquillian-junit5-container</artifactId>
+                    <scope>test</scope>
+                </dependency>
+
+                <!-- Payara Server Remote Arquillian Adapter (Jakarta EE 10 / Payara 6) -->
+                <dependency>
+                    <groupId>fish.payara.arquillian</groupId>
+                    <artifactId>arquillian-payara-server-remote</artifactId>
+                    <version>${payara.arquillian.version}</version>
+                    <scope>test</scope>
+                </dependency>
+            </dependencies>
+
+            <build>
+                <plugins>
+                    <!-- Maven Failsafe Plugin for running Arquillian Integration Tests (*IT.java) -->
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-failsafe-plugin</artifactId>
+                        <version>${maven.failsafe.version}</version>
+                        <executions>
+                            <execution>
+                                <goals>
+                                    <goal>integration-test</goal>
+                                    <goal>verify</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 
 </project>
