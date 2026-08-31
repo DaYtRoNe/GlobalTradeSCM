@@ -2,10 +2,239 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>GlobalTrade SCM</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GlobalTrade — Supply Chain Management</title>
+    <link rel="stylesheet" href="css/app.css">
 </head>
 <body>
-<h1>GlobalTrade Supply Chain Management System</h1>
-<p>Payara Server deployment is working successfully.</p>
+
+    <!-- Toast Notification Container -->
+    <div id="toast-container" class="toast-container" aria-live="polite"></div>
+
+    <!-- =========================================================================
+         VIEW 1: Authentication Screen
+         ========================================================================= -->
+    <div id="view-login" class="login-wrapper">
+        <div class="login-card">
+            <div class="login-brand">
+                <span class="brand-icon">🌐</span>
+                <h1>GlobalTrade</h1>
+                <p>Supply Chain Management System</p>
+            </div>
+
+            <div id="login-error" class="login-error"></div>
+
+            <form id="form-login" class="login-form" autocomplete="off">
+                <div class="form-group">
+                    <label for="input-username">Username</label>
+                    <input type="text" id="input-username" class="form-input" placeholder="e.g. gt_admin or gt_customer" required autofocus>
+                </div>
+
+                <div class="form-group">
+                    <label for="input-password">Password</label>
+                    <input type="password" id="input-password" class="form-input" placeholder="Enter your password" required>
+                </div>
+
+                <button type="submit" id="btn-login-submit" class="btn btn-primary btn-block" style="margin-top: 10px;">
+                    Sign In
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- =========================================================================
+         VIEW 2: Main Application Shell (Portals)
+         ========================================================================= -->
+    <div id="view-app" class="app-container hidden">
+        
+        <!-- App Sidebar Navigation -->
+        <aside class="app-sidebar">
+            <div class="sidebar-header">
+                <span style="font-size: 1.5rem;">🌐</span>
+                <div>
+                    <div class="sidebar-brand-title">GlobalTrade</div>
+                    <div id="sidebar-portal-tag" class="sidebar-brand-subtitle">Enterprise Portal</div>
+                </div>
+            </div>
+
+            <nav id="sidebar-nav" class="sidebar-nav" aria-label="Portal Navigation">
+                <!-- Dynamically populated based on authenticated user role -->
+            </nav>
+        </aside>
+
+        <!-- App Main Content Area -->
+        <div class="app-main">
+            <!-- Top Header -->
+            <header class="app-header">
+                <div id="header-portal-title" class="header-portal-title">Supply Chain Management</div>
+
+                <div class="header-user-menu">
+                    <div class="user-badge">
+                        <div id="user-avatar-initials" class="user-avatar">U</div>
+                        <div class="user-info">
+                            <span id="user-display-name" class="user-name">User</span>
+                            <span id="user-display-role" class="user-role-tag">ROLE</span>
+                        </div>
+                    </div>
+
+                    <button id="btn-logout" class="btn btn-secondary btn-sm" title="Sign out of the system">
+                        Sign Out
+                    </button>
+                </div>
+            </header>
+
+            <!-- Dynamic View Container -->
+            <main id="main-content" class="app-content">
+                <!-- Dynamically rendered screen content -->
+            </main>
+        </div>
+    </div>
+
+    <!-- =========================================================================
+         MODALS
+         ========================================================================= -->
+
+    <!-- Shipment Details Modal -->
+    <div id="modal-shipment" class="modal-overlay hidden" role="dialog" aria-modal="true">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3 class="modal-title">Shipment Details & Tracking</h3>
+                <button type="button" class="modal-close" data-close-modal="modal-shipment">&times;</button>
+            </div>
+            <div class="modal-body">
+                <!-- Workflow Position Visualizer -->
+                <div>
+                    <span class="detail-label" style="margin-bottom: 6px; display: block;">Current Workflow Position</span>
+                    <div id="shipment-progress-workflow" class="progress-workflow"></div>
+                </div>
+
+                <!-- Shipment Attributes -->
+                <div class="details-grid">
+                    <div class="detail-item">
+                        <span class="detail-label">Tracking Number</span>
+                        <span id="det-tracking-number" class="detail-value font-mono">-</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Current Status</span>
+                        <span id="det-status" class="detail-value">-</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Origin</span>
+                        <span id="det-origin" class="detail-value">-</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Destination</span>
+                        <span id="det-destination" class="detail-value">-</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Supplier / Vendor</span>
+                        <span id="det-vendor" class="detail-value">-</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Expected Delivery</span>
+                        <span id="det-expected-date" class="detail-value">-</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Actual Delivery</span>
+                        <span id="det-actual-date" class="detail-value">-</span>
+                    </div>
+                </div>
+
+                <!-- Customs Documents Section -->
+                <div style="margin-top: 12px;">
+                    <h4 style="font-size: 0.95rem; font-weight: 600; margin-bottom: 8px;">Associated Customs Documents</h4>
+                    <div class="table-responsive">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Document #</th>
+                                    <th>Type</th>
+                                    <th>Status</th>
+                                    <th>Deadline</th>
+                                </tr>
+                            </thead>
+                            <tbody id="det-customs-tbody">
+                                <tr><td colspan="4" class="text-center text-muted">No customs documents on record.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-close-modal="modal-shipment">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dispatch Shipment Modal -->
+    <div id="modal-dispatch" class="modal-overlay hidden" role="dialog" aria-modal="true">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3 class="modal-title">Dispatch Consignment</h3>
+                <button type="button" class="modal-close" data-close-modal="modal-dispatch">&times;</button>
+            </div>
+            <form id="form-dispatch" class="modal-body">
+                <input type="hidden" id="dispatch-shipment-id">
+                
+                <div class="form-group">
+                    <label>Target Shipment</label>
+                    <input type="text" id="dispatch-tracking-display" class="form-input" readonly>
+                </div>
+
+                <div class="form-group">
+                    <label for="dispatch-inventory-select">Select Inventory Item (SKU)</label>
+                    <select id="dispatch-inventory-select" class="form-select" required>
+                        <option value="">Loading available inventory items...</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="dispatch-quantity-input">Dispatch Quantity (Units)</label>
+                    <input type="number" id="dispatch-quantity-input" class="form-input" min="1" max="10000" value="10" required>
+                </div>
+
+                <p class="text-muted" style="font-size: 0.8rem;">
+                    <em>Note: Dispatching will atomically deduct units from warehouse inventory and advance the consignment status to <strong>IN_TRANSIT</strong>.</em>
+                </p>
+                <div class="modal-footer" style="margin: 0 -24px -24px -24px;">
+                    <button type="button" class="btn btn-secondary" data-close-modal="modal-dispatch">Cancel</button>
+                    <button type="submit" id="btn-dispatch-confirm" class="btn btn-primary">Confirm Dispatch</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Replenish Inventory Modal -->
+    <div id="modal-replenish" class="modal-overlay hidden" role="dialog" aria-modal="true">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3 class="modal-title">Replenish Warehouse Stock</h3>
+                <button type="button" class="modal-close" data-close-modal="modal-replenish">&times;</button>
+            </div>
+            <form id="form-replenish" class="modal-body">
+                <input type="hidden" id="replenish-item-id">
+
+                <div class="form-group">
+                    <label>Target Item</label>
+                    <input type="text" id="replenish-item-display" class="form-input" readonly>
+                </div>
+
+                <div class="form-group">
+                    <label for="replenish-quantity-input">Replenishment Quantity (Units to Add)</label>
+                    <input type="number" id="replenish-quantity-input" class="form-input" min="1" max="100000" value="50" required>
+                </div>
+
+                <div class="modal-footer" style="margin: 0 -24px -24px -24px;">
+                    <button type="button" class="btn btn-secondary" data-close-modal="modal-replenish">Cancel</button>
+                    <button type="submit" id="btn-replenish-confirm" class="btn btn-success">Confirm Replenishment</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Application JavaScript Scripts -->
+    <script src="js/api.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/app.js"></script>
 </body>
 </html>

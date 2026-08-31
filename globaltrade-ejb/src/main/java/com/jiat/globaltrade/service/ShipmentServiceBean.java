@@ -78,7 +78,12 @@ public class ShipmentServiceBean {
     /**
      * Read-only lookup for all shipments.
      */
-    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.LOGISTICS_COORDINATOR})
+    @RolesAllowed({
+            SecurityRoles.ADMIN,
+            SecurityRoles.LOGISTICS_COORDINATOR,
+            SecurityRoles.CUSTOMS_AGENT,
+            SecurityRoles.WAREHOUSE_MANAGER
+    })
     @TransactionAttribute(TransactionAttributeType.SUPPORTS)
     public List<Shipment> findAllShipments() {
         return em.createQuery("SELECT s FROM Shipment s ORDER BY s.createdAt DESC", Shipment.class)

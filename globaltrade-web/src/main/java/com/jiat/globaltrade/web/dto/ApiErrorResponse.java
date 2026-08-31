@@ -24,6 +24,13 @@ public class ApiErrorResponse implements Serializable {
         this.timestamp = LocalDateTime.now().format(ISO_FORMATTER);
     }
 
+    public ApiErrorResponse(String errorCode, String message) {
+        this.status = "ERROR";
+        this.errorCode = errorCode;
+        this.message = message;
+        this.timestamp = LocalDateTime.now().format(ISO_FORMATTER);
+    }
+
     public ApiErrorResponse(String status, String errorCode, String message, String path) {
         this.status = status;
         this.errorCode = errorCode;

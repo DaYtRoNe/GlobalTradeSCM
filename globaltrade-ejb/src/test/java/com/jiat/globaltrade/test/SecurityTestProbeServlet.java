@@ -216,6 +216,12 @@ public class SecurityTestProbeServlet extends HttpServlet {
             return;
         }
 
+        if ("/staff-data/shipments".equals(pathInfo)) {
+            List<Shipment> list = shipmentService.findAllShipments();
+            out.write(String.format("{\"status\":\"SUCCESS\",\"count\":%d}", list.size()));
+            return;
+        }
+
         if ("/staff-data/audit-logs".equals(pathInfo)) {
             List<AuditLog> list = auditService.getRecentLogs(50);
             out.write(String.format("{\"status\":\"SUCCESS\",\"count\":%d}", list.size()));
@@ -224,6 +230,77 @@ public class SecurityTestProbeServlet extends HttpServlet {
 
         resp.setStatus(HttpServletResponse.SC_NOT_FOUND);
         out.write("{\"status\":\"NOT_FOUND\",\"message\":\"Unknown probe endpoint\"}");
+    }
+
+    @Override
+    protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+        String pathInfo = req.getPathInfo();
+        if (pathInfo == null) {
+            pathInfo = "/";
+        }
+
+        resp.setContentType("application/json");
+        resp.setCharacterEncoding("UTF-8");
+        PrintWriter out = resp.getWriter();
+
+        if ("/ui-login".equals(pathInfo)) {
+            StringBuilder sb = new StringBuilder();
+            try (java.io.BufferedReader reader = req.getReader()) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    sb.append(line);
+                }
+            }
+            String body = sb.toString();
+            String username = extractJsonString(body, "username");
+            String password = extractJsonString(body, "password");
+
+            if (username == null || password == null) {
+                resp.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                out.write("{\"status\":\"UNAUTHORIZED\",\"message\":\"Username and password are required.\"}");
+                return;
+            }
+
+            try {
+                try {
+                    if (req.getUserPrincipal() != null) {
+                        req.logout();
+                    }
+                } catch (Exception ignored) {
+                }
+
+                req.login(username, password);
+
+                Principal p = req.getUserPrincipal();
+                String principalName = p != null ? p.getName() : username;
+                boolean isAdmin = req.isUserInRole(SecurityRoles.ADMIN);
+                boolean isCustomer = req.isUserInRole(SecurityRoles.CUSTOMER);
+
+                out.write(String.format(
+                        "{\"status\":\"SUCCESS\",\"authenticated\":true,\"principal\":\"%s\"," +
+                        "\"roles\":{\"ADMIN\":%b,\"CUSTOMER\":%b}}",
+                        principalName, isAdmin, isCustomer
+                ));
+            } catch (jakarta.servlet.ServletException e) {
+                resp.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                out.write("{\"status\":\"UNAUTHORIZED\",\"message\":\"Invalid username or password.\"}");
+            }
+            return;
+        }
+
+        resp.setStatus(HttpServletResponse.SC_NOT_FOUND);
+        out.write("{\"status\":\"NOT_FOUND\",\"message\":\"Unknown probe endpoint\"}");
+    }
+
+    private String extractJsonString(String json, String key) {
+        if (json == null) return null;
+        String pattern = "\"" + key + "\":\"";
+        int start = json.indexOf(pattern);
+        if (start == -1) return null;
+        start += pattern.length();
+        int end = json.indexOf("\"", start);
+        if (end == -1) return null;
+        return json.substring(start, end);
     }
 }
 
