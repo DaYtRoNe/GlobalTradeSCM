@@ -213,21 +213,21 @@ sequenceDiagram
 
 ### Use Case 4: Customs Agent Reviews and Approves Declaration
 - **Actor**: Customs Clearance Officer (`gt_customs`).
-- **Endpoint**: `PUT /api/security/customs-docs/1/approve` (or Service call).
+- **Endpoint**: `POST /api/business-security/customs/1/review` (or EJB service call).
 - **Flow**:
   1. `gt_customs` logs in via HTTP Basic Auth.
   2. Payara verifies `CUSTOMS_AGENT` role.
-  3. `CustomsServiceBean.approveCustomsDocument` updates document status to `APPROVED`.
-  4. Audit trail records `CUSTOMS_APPROVED` with timestamp and agent remarks.
+  3. `CustomsServiceBean.updateDocumentStatus` updates document status to `APPROVED`.
+  4. Audit trail records `UPDATE_CUSTOMS_STATUS` with timestamp and agent remarks.
   5. The associated shipment is now eligible for international freight dispatch.
 
 ---
 
 ### Use Case 5: Background Monitoring Timer Executes Health Check
 - **Actor**: Automatic System Timer (`SYSTEM`).
-- **Trigger**: Every 15 minutes via `@Schedule`.
+- **Trigger**: Every 5 minutes via `@Schedule(hour = "*", minute = "*/5", second = "0", persistent = true)`.
 - **Flow**:
-  1. Payara EJB Timer container wakes `SupplyChainMonitoringTimerBean.executeMonitoringCycle()`.
+  1. Payara EJB Timer container wakes `SupplyChainMonitoringTimerBean.automaticMonitoringSchedule()`.
   2. Bean queries database for items with `quantity <= reorderLevel`.
   3. Bean queries pending shipments older than 48 hours.
   4. Formats monitoring summary and logs results.

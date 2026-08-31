@@ -17,7 +17,7 @@ graph TD
 
     subgraph AppServer["2. Application Server: Payara Server 6.2025.11"]
         subgraph WebTier["Web Presentation Tier (globaltrade-web.war)"]
-            AuthFilter["HTTP Basic Authentication Engine"]
+            PayaraAuth["Payara Web Container / HTTP Basic Authentication"]
             JAXRS["JAX-RS Resource Endpoints<br/>(/api/*)"]
             Mappers["Centralized Exception Mappers<br/>(400, 401, 403, 404, 409, 500)"]
         end
@@ -45,11 +45,11 @@ graph TD
         MySQL[(MySQL Relational Database: globaltrade_db)]
     end
 
-    Client -->|HTTP Request with Basic Auth| AuthFilter
-    TestClient -->|HTTP / In-Container Invocations| AuthFilter
-    AuthFilter -->|JAAS Pipeline| JAAS
+    Client -->|HTTP Request with Basic Auth| PayaraAuth
+    TestClient -->|HTTP / In-Container Invocations| PayaraAuth
+    PayaraAuth -->|JAAS Pipeline| JAAS
     JAAS -->|SQL SHA-256 Auth & Role Query| MySQL
-    AuthFilter -->|Authorized Principal| JAXRS
+    PayaraAuth -->|Authorized Principal| JAXRS
     JAXRS -->|@EJB Injection| EJBs
     JAXRS -.->|Maps Exceptions to JSON| Mappers
     EJBs --> RBAC
