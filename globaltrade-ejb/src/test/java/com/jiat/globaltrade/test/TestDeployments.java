@@ -16,8 +16,76 @@ public final class TestDeployments {
             <?xml version="1.0" encoding="UTF-8"?>
             <web-app xmlns="https://jakarta.ee/xml/ns/jakartaee"
                      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-                     xsi:schemaLocation="https://jakarta.ee/xml/ns/jakartaee https://jakarta.ee/xml/ns/jakartaee/web-app_6_0.xsd"
+                     xsi:schemaLocation="https://jakarta.ee/xml/ns/jakartaee
+                                         https://jakarta.ee/xml/ns/jakartaee/web-app_6_0.xsd"
                      version="6.0">
+
+                <display-name>GlobalTrade Test Deployment</display-name>
+
+                <!-- Constraint 1: Protected WhoAmI Probe - requires any valid authenticated role -->
+                <security-constraint>
+                    <display-name>WhoAmI Probe Protection</display-name>
+                    <web-resource-collection>
+                        <web-resource-name>WhoAmI</web-resource-name>
+                        <url-pattern>/security-test/whoami</url-pattern>
+                    </web-resource-collection>
+                    <auth-constraint>
+                        <role-name>ADMIN</role-name>
+                        <role-name>LOGISTICS_COORDINATOR</role-name>
+                        <role-name>CUSTOMS_AGENT</role-name>
+                        <role-name>WAREHOUSE_MANAGER</role-name>
+                        <role-name>VENDOR_REPRESENTATIVE</role-name>
+                        <role-name>CUSTOMER</role-name>
+                        <role-name>SYSTEM</role-name>
+                    </auth-constraint>
+                </security-constraint>
+
+                <!-- Constraint 2: Admin-Only Probe -->
+                <security-constraint>
+                    <display-name>Admin Probe Protection</display-name>
+                    <web-resource-collection>
+                        <web-resource-name>Admin Endpoint</web-resource-name>
+                        <url-pattern>/security-test/admin</url-pattern>
+                    </web-resource-collection>
+                    <auth-constraint>
+                        <role-name>ADMIN</role-name>
+                    </auth-constraint>
+                </security-constraint>
+
+                <!-- Constraint 3: Customs Agent Probe -->
+                <security-constraint>
+                    <display-name>Customs Probe Protection</display-name>
+                    <web-resource-collection>
+                        <web-resource-name>Customs Endpoint</web-resource-name>
+                        <url-pattern>/security-test/customs</url-pattern>
+                    </web-resource-collection>
+                    <auth-constraint>
+                        <role-name>CUSTOMS_AGENT</role-name>
+                        <role-name>ADMIN</role-name>
+                    </auth-constraint>
+                </security-constraint>
+
+                <!-- Constraint 4: Vendor Data Probe -->
+                <security-constraint>
+                    <display-name>Vendor Data Probe Protection</display-name>
+                    <web-resource-collection>
+                        <web-resource-name>Vendor Endpoint</web-resource-name>
+                        <url-pattern>/security-test/vendor/*</url-pattern>
+                    </web-resource-collection>
+                    <auth-constraint>
+                        <role-name>ADMIN</role-name>
+                        <role-name>LOGISTICS_COORDINATOR</role-name>
+                        <role-name>VENDOR_REPRESENTATIVE</role-name>
+                    </auth-constraint>
+                </security-constraint>
+
+                <!-- Authentication Mechanism: HTTP Basic with GlobalTradeCustomRealm -->
+                <login-config>
+                    <auth-method>BASIC</auth-method>
+                    <realm-name>GlobalTradeCustomRealm</realm-name>
+                </login-config>
+
+                <!-- Application Security Roles -->
                 <security-role>
                     <role-name>ADMIN</role-name>
                 </security-role>
@@ -39,6 +107,9 @@ public final class TestDeployments {
                 <security-role>
                     <role-name>SYSTEM</role-name>
                 </security-role>
+
+                <deny-uncovered-http-methods/>
+
             </web-app>
             """;
 
@@ -147,14 +218,15 @@ public final class TestDeployments {
                 // Security definitions and DTOs
                 .addPackage("com.jiat.globaltrade.security")
                 .addPackage("com.jiat.globaltrade.security.dto")
-                // Test helper EJB and test classes
+                // Test helper EJB, probe servlet, and test classes
                 .addClass(AdminTestInvoker.class)
+                .addClass(SecurityTestProbeServlet.class)
                 .addClass(TestDeployments.class)
                 // Real JPA persistence.xml
                 .addAsResource("META-INF/persistence.xml", "META-INF/persistence.xml")
                 // CDI configuration
                 .addAsWebInfResource(EmptyAsset.INSTANCE, "beans.xml")
-                // Security role mappings for @RunAs(ADMIN)
+                // Security descriptors targeting GlobalTradeCustomRealm
                 .addAsWebInfResource(new StringAsset(TEST_WEB_XML), "web.xml")
                 .addAsWebInfResource(new StringAsset(TEST_GLASSFISH_WEB_XML), "glassfish-web.xml")
                 .addAsWebInfResource(new StringAsset(TEST_GLASSFISH_EJB_JAR_XML), "glassfish-ejb-jar.xml");
