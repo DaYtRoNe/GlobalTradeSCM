@@ -1,6 +1,7 @@
 package com.jiat.globaltrade.security;
 
 import com.jiat.globaltrade.entity.Vendor;
+import com.jiat.globaltrade.exception.ResourceNotFoundException;
 import com.jiat.globaltrade.exception.VendorAccessDeniedException;
 import com.jiat.globaltrade.service.AuditServiceBean;
 import jakarta.annotation.Resource;
@@ -115,7 +116,7 @@ public class VendorAuthorizationServiceBean implements Serializable {
             SecurityRoles.VENDOR_REPRESENTATIVE
     })
     @TransactionAttribute(TransactionAttributeType.SUPPORTS)
-    public Vendor getVendorForAuthorizedCaller(Long vendorId) throws VendorAccessDeniedException {
+    public Vendor getVendorForAuthorizedCaller(Long vendorId) throws VendorAccessDeniedException, ResourceNotFoundException {
         String username = sessionContext.getCallerPrincipal() != null ? sessionContext.getCallerPrincipal().getName() : "ANONYMOUS";
 
         if (!isCallerAuthorizedForVendor(vendorId)) {
@@ -125,7 +126,7 @@ public class VendorAuthorizationServiceBean implements Serializable {
         Vendor vendor = em.find(Vendor.class, vendorId);
         if (vendor == null) {
             LOGGER.log(Level.WARNING, "[VendorAuthorizationServiceBean] Vendor #{0} not found.", vendorId);
-            return null;
+            throw new ResourceNotFoundException("Vendor", vendorId);
         }
 
         return vendor;

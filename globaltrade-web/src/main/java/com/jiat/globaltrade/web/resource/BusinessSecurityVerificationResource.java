@@ -5,6 +5,9 @@ import com.jiat.globaltrade.entity.InventoryItem;
 import com.jiat.globaltrade.entity.Shipment;
 import com.jiat.globaltrade.entity.Vendor;
 import com.jiat.globaltrade.entity.enums.CustomsDocumentStatus;
+import com.jiat.globaltrade.exception.BusinessRuleViolationException;
+import com.jiat.globaltrade.exception.InsufficientInventoryException;
+import com.jiat.globaltrade.exception.ResourceNotFoundException;
 import com.jiat.globaltrade.exception.VendorAccessDeniedException;
 import com.jiat.globaltrade.security.VendorAuthorizationServiceBean;
 import com.jiat.globaltrade.service.CustomsServiceBean;
@@ -36,10 +39,10 @@ import java.util.logging.Logger;
  * REST Endpoint Resource demonstrating real business-service RBAC and fine-grained authorization.
  * Base Path: /api/business-security
  *
- * Protected under web.xml BASIC authentication constraint (GlobalTradeRealm).
+ * Protected under web.xml BASIC authentication constraint (GlobalTradeCustomRealm).
  * Configured with @TransactionAttribute(NOT_SUPPORTED) so the REST facade does not initiate
  * or own an outer transaction, allowing downstream business EJBs to independently manage
- * their CMT transactions and ensuring security denials translate cleanly to HTTP 403.
+ * their CMT transactions and allowing centralized JAX-RS ExceptionMappers to handle application exceptions.
  */
 @Stateless
 @Path("/business-security")
@@ -67,16 +70,13 @@ public class BusinessSecurityVerificationResource {
      */
     @GET
     @Path("/vendor/{id}")
-    public Response getSecuredVendor(@PathParam("id") Long id, @Context SecurityContext securityContext) {
+    public Response getSecuredVendor(@PathParam("id") Long id, @Context SecurityContext securityContext)
+            throws ResourceNotFoundException, VendorAccessDeniedException {
         String caller = securityContext.getUserPrincipal() != null ? securityContext.getUserPrincipal().getName() : "ANONYMOUS";
         try {
             Vendor vendor = vendorAuthService.getVendorForAuthorizedCaller(id);
             if (vendor == null) {
-                JsonObject notFound = Json.createObjectBuilder()
-                        .add("status", "NOT_FOUND")
-                        .add("message", "Vendor not found for ID: " + id)
-                        .build();
-                return Response.status(Response.Status.NOT_FOUND).entity(notFound).build();
+                throw new ResourceNotFoundException("Vendor", id);
             }
 
             JsonObject response = Json.createObjectBuilder()
@@ -92,7 +92,13 @@ public class BusinessSecurityVerificationResource {
 
             return Response.ok(response).build();
         } catch (Exception e) {
-            if (isAuthorizationException(e)) {
+            ResourceNotFoundException rnf = findException(e, ResourceNotFoundException.class);
+            if (rnf != null) {
+                throw rnf;
+            }
+
+            VendorAccessDeniedException vad = findException(e, VendorAccessDeniedException.class);
+            if (vad != null) {
                 LOGGER.log(Level.WARNING, "[BusinessSecurityVerificationResource] Access denied to Vendor #{0} for caller: {1}",
                         new Object[]{id, caller});
                 JsonObject forbidden = Json.createObjectBuilder()
@@ -105,12 +111,21 @@ public class BusinessSecurityVerificationResource {
                 return Response.status(Response.Status.FORBIDDEN).entity(forbidden).build();
             }
 
+            if (isAuthorizationException(e)) {
+                LOGGER.log(Level.WARNING, "[BusinessSecurityVerificationResource] RBAC Access denied to Vendor #{0} for caller: {1}",
+                        new Object[]{id, caller});
+                JsonObject forbidden = Json.createObjectBuilder()
+                        .add("status", "FORBIDDEN")
+                        .add("authorized", false)
+                        .add("caller", caller)
+                        .add("targetVendorId", id)
+                        .add("message", "Access denied to the requested vendor.")
+                        .build();
+                return Response.status(Response.Status.FORBIDDEN).entity(forbidden).build();
+            }
+
             LOGGER.log(Level.SEVERE, "[BusinessSecurityVerificationResource] Unexpected error in getSecuredVendor", e);
-            JsonObject serverError = Json.createObjectBuilder()
-                    .add("status", "ERROR")
-                    .add("message", "An unexpected error occurred while processing the request.")
-                    .build();
-            return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(serverError).build();
+            throw e;
         }
     }
 
@@ -120,16 +135,13 @@ public class BusinessSecurityVerificationResource {
      */
     @GET
     @Path("/inventory/{id}")
-    public Response getInventoryItem(@PathParam("id") Long id, @Context SecurityContext securityContext) {
+    public Response getInventoryItem(@PathParam("id") Long id, @Context SecurityContext securityContext)
+            throws ResourceNotFoundException {
         String caller = securityContext.getUserPrincipal() != null ? securityContext.getUserPrincipal().getName() : "ANONYMOUS";
         try {
             InventoryItem item = inventoryService.findInventoryItemById(id);
             if (item == null) {
-                JsonObject notFound = Json.createObjectBuilder()
-                        .add("status", "NOT_FOUND")
-                        .add("message", "Inventory item not found for ID: " + id)
-                        .build();
-                return Response.status(Response.Status.NOT_FOUND).entity(notFound).build();
+                throw new ResourceNotFoundException("InventoryItem", id);
             }
 
             JsonObject response = Json.createObjectBuilder()
@@ -145,6 +157,11 @@ public class BusinessSecurityVerificationResource {
 
             return Response.ok(response).build();
         } catch (Exception e) {
+            ResourceNotFoundException rnf = findException(e, ResourceNotFoundException.class);
+            if (rnf != null) {
+                throw rnf;
+            }
+
             if (isAuthorizationException(e)) {
                 JsonObject forbidden = Json.createObjectBuilder()
                         .add("status", "FORBIDDEN")
@@ -156,11 +173,7 @@ public class BusinessSecurityVerificationResource {
             }
 
             LOGGER.log(Level.SEVERE, "[BusinessSecurityVerificationResource] Unexpected error in getInventoryItem", e);
-            JsonObject serverError = Json.createObjectBuilder()
-                    .add("status", "ERROR")
-                    .add("message", "An unexpected error occurred while processing the request.")
-                    .build();
-            return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(serverError).build();
+            throw e;
         }
     }
 
@@ -171,16 +184,13 @@ public class BusinessSecurityVerificationResource {
      */
     @POST
     @Path("/customs/{id}/review")
-    public Response reviewCustomsDocument(@PathParam("id") Long id, @Context SecurityContext securityContext) {
+    public Response reviewCustomsDocument(@PathParam("id") Long id, @Context SecurityContext securityContext)
+            throws ResourceNotFoundException {
         String caller = securityContext.getUserPrincipal() != null ? securityContext.getUserPrincipal().getName() : "ANONYMOUS";
         try {
             CustomsDocument doc = customsService.updateDocumentStatus(id, CustomsDocumentStatus.APPROVED, caller);
             if (doc == null) {
-                JsonObject notFound = Json.createObjectBuilder()
-                        .add("status", "NOT_FOUND")
-                        .add("message", "Customs document not found for ID: " + id)
-                        .build();
-                return Response.status(Response.Status.NOT_FOUND).entity(notFound).build();
+                throw new ResourceNotFoundException("CustomsDocument", id);
             }
 
             JsonObject response = Json.createObjectBuilder()
@@ -195,6 +205,11 @@ public class BusinessSecurityVerificationResource {
 
             return Response.ok(response).build();
         } catch (Exception e) {
+            ResourceNotFoundException rnf = findException(e, ResourceNotFoundException.class);
+            if (rnf != null) {
+                throw rnf;
+            }
+
             if (isAuthorizationException(e)) {
                 JsonObject forbidden = Json.createObjectBuilder()
                         .add("status", "FORBIDDEN")
@@ -208,11 +223,7 @@ public class BusinessSecurityVerificationResource {
             }
 
             LOGGER.log(Level.SEVERE, "[BusinessSecurityVerificationResource] Unexpected error in reviewCustomsDocument", e);
-            JsonObject serverError = Json.createObjectBuilder()
-                    .add("status", "ERROR")
-                    .add("message", "An unexpected error occurred while processing the request.")
-                    .build();
-            return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(serverError).build();
+            throw e;
         }
     }
 
@@ -225,16 +236,13 @@ public class BusinessSecurityVerificationResource {
     @Path("/inventory/{id}/replenish")
     public Response replenishInventoryStock(@PathParam("id") Long id,
                                             @QueryParam("quantity") @DefaultValue("50") int quantity,
-                                            @Context SecurityContext securityContext) {
+                                            @Context SecurityContext securityContext)
+            throws ResourceNotFoundException {
         String caller = securityContext.getUserPrincipal() != null ? securityContext.getUserPrincipal().getName() : "ANONYMOUS";
         try {
             InventoryItem item = inventoryService.increaseStock(id, quantity, caller);
             if (item == null) {
-                JsonObject notFound = Json.createObjectBuilder()
-                        .add("status", "NOT_FOUND")
-                        .add("message", "Inventory item not found for ID: " + id)
-                        .build();
-                return Response.status(Response.Status.NOT_FOUND).entity(notFound).build();
+                throw new ResourceNotFoundException("InventoryItem", id);
             }
 
             JsonObject response = Json.createObjectBuilder()
@@ -250,6 +258,11 @@ public class BusinessSecurityVerificationResource {
 
             return Response.ok(response).build();
         } catch (Exception e) {
+            ResourceNotFoundException rnf = findException(e, ResourceNotFoundException.class);
+            if (rnf != null) {
+                throw rnf;
+            }
+
             if (isAuthorizationException(e)) {
                 JsonObject forbidden = Json.createObjectBuilder()
                         .add("status", "FORBIDDEN")
@@ -263,11 +276,7 @@ public class BusinessSecurityVerificationResource {
             }
 
             LOGGER.log(Level.SEVERE, "[BusinessSecurityVerificationResource] Unexpected error in replenishInventoryStock", e);
-            JsonObject serverError = Json.createObjectBuilder()
-                    .add("status", "ERROR")
-                    .add("message", "An unexpected error occurred while processing the request.")
-                    .build();
-            return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(serverError).build();
+            throw e;
         }
     }
 
@@ -281,7 +290,8 @@ public class BusinessSecurityVerificationResource {
     public Response dispatchShipment(@PathParam("id") Long id,
                                      @QueryParam("inventoryId") @DefaultValue("1") Long inventoryId,
                                      @QueryParam("quantity") @DefaultValue("10") int quantity,
-                                     @Context SecurityContext securityContext) {
+                                     @Context SecurityContext securityContext)
+            throws InsufficientInventoryException, ResourceNotFoundException {
         String caller = securityContext.getUserPrincipal() != null ? securityContext.getUserPrincipal().getName() : "ANONYMOUS";
         try {
             Shipment shipment = shipmentService.processShipmentDispatch(id, inventoryId, quantity, caller);
@@ -297,6 +307,16 @@ public class BusinessSecurityVerificationResource {
 
             return Response.ok(response).build();
         } catch (Exception e) {
+            InsufficientInventoryException iie = findException(e, InsufficientInventoryException.class);
+            if (iie != null) {
+                throw iie;
+            }
+
+            ResourceNotFoundException rnf = findException(e, ResourceNotFoundException.class);
+            if (rnf != null) {
+                throw rnf;
+            }
+
             if (isAuthorizationException(e)) {
                 JsonObject forbidden = Json.createObjectBuilder()
                         .add("status", "FORBIDDEN")
@@ -310,12 +330,7 @@ public class BusinessSecurityVerificationResource {
             }
 
             LOGGER.log(Level.SEVERE, "[BusinessSecurityVerificationResource] Error in dispatchShipment", e);
-            JsonObject error = Json.createObjectBuilder()
-                    .add("status", "ERROR")
-                    .add("caller", caller)
-                    .add("message", e.getMessage() != null ? e.getMessage() : "Unknown error during dispatch")
-                    .build();
-            return Response.status(Response.Status.BAD_REQUEST).entity(error).build();
+            throw e;
         }
     }
 
@@ -331,8 +346,28 @@ public class BusinessSecurityVerificationResource {
                     || current instanceof SecurityException) {
                 return true;
             }
+            if (current.getCause() == null || current.getCause() == current) {
+                break;
+            }
             current = current.getCause();
         }
         return false;
+    }
+
+    /**
+     * Traverses the exception cause hierarchy to extract a specific typed exception.
+     */
+    private <T extends Throwable> T findException(Throwable t, Class<T> targetClass) {
+        Throwable current = t;
+        while (current != null) {
+            if (targetClass.isInstance(current)) {
+                return targetClass.cast(current);
+            }
+            if (current.getCause() == null || current.getCause() == current) {
+                break;
+            }
+            current = current.getCause();
+        }
+        return null;
     }
 }
