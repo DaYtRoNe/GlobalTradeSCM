@@ -11,10 +11,14 @@ import jakarta.annotation.security.PermitAll;
 import jakarta.annotation.security.RunAs;
 import jakarta.ejb.EJB;
 import jakarta.ejb.Stateless;
+import jakarta.ejb.TransactionAttribute;
+import jakarta.ejb.TransactionAttributeType;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import java.math.BigDecimal;
 
 /**
- * Test-only helper EJB executing business methods with the ADMIN security identity.
+ * Test-only helper EJB executing business methods and test fixtures with the ADMIN security identity.
  * This allows integration tests running within the container to invoke secured
  * business EJBs annotated with @RolesAllowed({ADMIN, ...}) without modifying or
  * weakening production security configurations.
@@ -29,6 +33,9 @@ import java.math.BigDecimal;
 })
 public class AdminTestInvoker {
 
+    @PersistenceContext(unitName = "GlobalTradePU")
+    private EntityManager em;
+
     @EJB
     private ShipmentServiceBean shipmentService;
 
@@ -42,5 +49,28 @@ public class AdminTestInvoker {
 
     public Vendor updatePerformanceRating(Long vendorId, BigDecimal rating, String performedBy) {
         return vendorService.updatePerformanceRating(vendorId, rating, performedBy);
+    }
+
+    @TransactionAttribute(TransactionAttributeType.REQUIRES_NEW)
+    public void invokeRunnable(ThrowingRunnable runnable) throws Exception {
+        runnable.run();
+    }
+
+    @TransactionAttribute(TransactionAttributeType.REQUIRED)
+    public void persist(Object entity) {
+        em.persist(entity);
+        em.flush();
+    }
+
+    @TransactionAttribute(TransactionAttributeType.REQUIRED)
+    public <T> T merge(T entity) {
+        T merged = em.merge(entity);
+        em.flush();
+        return merged;
+    }
+
+    @FunctionalInterface
+    public interface ThrowingRunnable {
+        void run() throws Exception;
     }
 }

@@ -125,15 +125,19 @@ public final class TestDeployments {
                     </auth-constraint>
                 </security-constraint>
 
-                <!-- Constraint 8: Alerts & Monitoring Probe -->
+                <!-- Constraint 8: Alerts, Monitoring & Route Probe -->
                 <security-constraint>
-                    <display-name>Alerts and Monitoring Probe Protection</display-name>
+                    <display-name>Alerts, Monitoring and Route Probe Protection</display-name>
                     <web-resource-collection>
-                        <web-resource-name>Alerts and Monitoring Endpoint</web-resource-name>
+                        <web-resource-name>Alerts, Monitoring and Route Endpoint</web-resource-name>
                         <url-pattern>/security-test/alerts/*</url-pattern>
                         <url-pattern>/security-test/alerts</url-pattern>
                         <url-pattern>/security-test/monitoring/*</url-pattern>
                         <url-pattern>/security-test/monitoring</url-pattern>
+                        <url-pattern>/security-test/route-options/*</url-pattern>
+                        <url-pattern>/security-test/route-options</url-pattern>
+                        <url-pattern>/security-test/route-optimizations/*</url-pattern>
+                        <url-pattern>/security-test/route-optimizations</url-pattern>
                     </web-resource-collection>
                     <auth-constraint>
                         <role-name>ADMIN</role-name>
@@ -281,6 +285,8 @@ public final class TestDeployments {
                 .addPackage("com.jiat.globaltrade.interceptor")
                 // Core Services
                 .addPackage("com.jiat.globaltrade.service")
+                // Declarative and Programmatic Timers
+                .addPackage("com.jiat.globaltrade.timer")
                 // Security definitions and DTOs
                 .addPackage("com.jiat.globaltrade.security")
                 .addPackage("com.jiat.globaltrade.security.dto")

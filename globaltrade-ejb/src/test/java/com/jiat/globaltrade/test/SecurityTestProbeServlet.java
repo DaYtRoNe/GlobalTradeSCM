@@ -22,6 +22,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.math.BigDecimal;
 import java.security.Principal;
 import java.util.List;
 import java.util.logging.Level;
@@ -63,6 +64,15 @@ public class SecurityTestProbeServlet extends HttpServlet {
 
     @EJB
     private com.jiat.globaltrade.service.SupplyChainMonitoringWorkerBean workerBean;
+
+    @EJB
+    private com.jiat.globaltrade.service.RouteOptimizationServiceBean routeOptimizationService;
+
+    @EJB
+    private com.jiat.globaltrade.service.RouteOptimizationCoordinatorBean routeCoordinator;
+
+    @EJB
+    private AdminTestInvoker invoker;
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws IOException {
@@ -258,6 +268,88 @@ public class SecurityTestProbeServlet extends HttpServlet {
             return;
         }
 
+        if ("/route-options".equals(pathInfo)) {
+            if (!req.isUserInRole(SecurityRoles.ADMIN) && !req.isUserInRole(SecurityRoles.LOGISTICS_COORDINATOR)) {
+                resp.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                out.write("{\"status\":\"FORBIDDEN\",\"message\":\"Access denied to route options\"}");
+                return;
+            }
+            try {
+                String origin = req.getParameter("origin");
+                String dest = req.getParameter("destination");
+                boolean activeOnly = "true".equalsIgnoreCase(req.getParameter("activeOnly"));
+                List<com.jiat.globaltrade.entity.RouteOption> routes = routeOptimizationService.findRouteOptions(origin, dest, activeOnly);
+                StringBuilder sb = new StringBuilder("[");
+                for (int i = 0; i < routes.size(); i++) {
+                    com.jiat.globaltrade.entity.RouteOption r = routes.get(i);
+                    sb.append(String.format(
+                            "{\"id\":%d,\"routeCode\":\"%s\",\"origin\":\"%s\",\"destination\":\"%s\",\"cost\":%s,\"hours\":%d,\"risk\":%s,\"active\":%b}",
+                            r.getId(), r.getRouteCode(), r.getOrigin(), r.getDestination(), r.getEstimatedCost(),
+                            r.getEstimatedTransitHours(), r.getOperationalRiskScore(), r.getActive()
+                    ));
+                    if (i < routes.size() - 1) sb.append(",");
+                }
+                sb.append("]");
+                out.write(sb.toString());
+            } catch (Exception e) {
+                resp.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                out.write(String.format("{\"status\":\"FORBIDDEN\",\"message\":\"%s\"}", e.getMessage()));
+            }
+            return;
+        }
+
+        if ("/route-optimizations".equals(pathInfo)) {
+            if (!req.isUserInRole(SecurityRoles.ADMIN) && !req.isUserInRole(SecurityRoles.LOGISTICS_COORDINATOR)) {
+                resp.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                out.write("{\"status\":\"FORBIDDEN\",\"message\":\"Access denied to route optimizations\"}");
+                return;
+            }
+            try {
+                List<com.jiat.globaltrade.entity.RouteOptimizationRecommendation> list = routeOptimizationService.findAllRecommendations();
+                StringBuilder sb = new StringBuilder("[");
+                for (int i = 0; i < list.size(); i++) {
+                    com.jiat.globaltrade.entity.RouteOptimizationRecommendation r = list.get(i);
+                    sb.append(String.format(
+                            "{\"id\":%d,\"shipmentId\":%d,\"routeCode\":\"%s\",\"score\":%s,\"transitHours\":%d,\"cost\":%s,\"risk\":%s}",
+                            r.getId(), r.getShipment().getId(), r.getSelectedRoute().getRouteCode(),
+                            r.getOptimizationScore(), r.getTransitTimeHours(), r.getEstimatedCost(), r.getRiskScore()
+                    ));
+                    if (i < list.size() - 1) sb.append(",");
+                }
+                sb.append("]");
+                out.write(sb.toString());
+            } catch (Exception e) {
+                resp.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                out.write(String.format("{\"status\":\"FORBIDDEN\",\"message\":\"%s\"}", e.getMessage()));
+            }
+            return;
+        }
+
+        if (pathInfo != null && pathInfo.startsWith("/route-optimizations/shipment/")) {
+            if (!req.isUserInRole(SecurityRoles.ADMIN) && !req.isUserInRole(SecurityRoles.LOGISTICS_COORDINATOR)) {
+                resp.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                out.write("{\"status\":\"FORBIDDEN\",\"message\":\"Access denied to route optimizations\"}");
+                return;
+            }
+            String idStr = pathInfo.substring("/route-optimizations/shipment/".length());
+            try {
+                Long shipmentId = Long.parseLong(idStr);
+                com.jiat.globaltrade.entity.RouteOptimizationRecommendation r = routeOptimizationService.findRecommendationByShipmentId(shipmentId);
+                out.write(String.format(
+                        "{\"id\":%d,\"shipmentId\":%d,\"routeCode\":\"%s\",\"score\":%s,\"transitHours\":%d,\"cost\":%s,\"risk\":%s}",
+                        r.getId(), r.getShipment().getId(), r.getSelectedRoute().getRouteCode(),
+                        r.getOptimizationScore(), r.getTransitTimeHours(), r.getEstimatedCost(), r.getRiskScore()
+                ));
+            } catch (com.jiat.globaltrade.exception.ResourceNotFoundException e) {
+                resp.setStatus(HttpServletResponse.SC_NOT_FOUND);
+                out.write(String.format("{\"status\":\"NOT_FOUND\",\"message\":\"%s\"}", e.getMessage()));
+            } catch (Exception e) {
+                resp.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                out.write(String.format("{\"status\":\"FORBIDDEN\",\"message\":\"%s\"}", e.getMessage()));
+            }
+            return;
+        }
+
         resp.setStatus(HttpServletResponse.SC_NOT_FOUND);
         out.write("{\"status\":\"NOT_FOUND\",\"message\":\"Unknown probe endpoint\"}");
     }
@@ -272,6 +364,112 @@ public class SecurityTestProbeServlet extends HttpServlet {
         resp.setContentType("application/json");
         resp.setCharacterEncoding("UTF-8");
         PrintWriter out = resp.getWriter();
+
+        if ("/route-options/seed-test-fixtures".equals(pathInfo)) {
+            if (!req.isUserInRole(SecurityRoles.ADMIN)) {
+                resp.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                out.write("{\"status\":\"FORBIDDEN\",\"message\":\"Caller is not in role ADMIN\"}");
+                return;
+            }
+            boolean airDiscount = "true".equalsIgnoreCase(req.getParameter("airDiscount"));
+            try {
+                invoker.invokeRunnable(() -> {
+                    List<com.jiat.globaltrade.entity.RouteOption> existing = routeOptimizationService.findRouteOptions("Tokyo, Japan", "Singapore", false);
+                    com.jiat.globaltrade.entity.RouteOption std = null;
+                    com.jiat.globaltrade.entity.RouteOption exp = null;
+                    com.jiat.globaltrade.entity.RouteOption eco = null;
+                    com.jiat.globaltrade.entity.RouteOption ina = null;
+                    for (com.jiat.globaltrade.entity.RouteOption r : existing) {
+                        if ("RT-TEST-TYO-SIN-STD".equals(r.getRouteCode())) std = r;
+                        if ("RT-TEST-TYO-SIN-EXP".equals(r.getRouteCode())) exp = r;
+                        if ("RT-TEST-TYO-SIN-ECO".equals(r.getRouteCode())) eco = r;
+                        if ("RT-TEST-TYO-SIN-INA".equals(r.getRouteCode())) ina = r;
+                    }
+
+                    if (std == null) {
+                        std = new com.jiat.globaltrade.entity.RouteOption("RT-TEST-TYO-SIN-STD", "Tokyo, Japan", "Singapore", "Pacific Maritime Express", "PME-204", "SEA", 72, new BigDecimal("900.00"), new BigDecimal("0.08"), true);
+                        invoker.persist(std);
+                    } else {
+                        std.setEstimatedCost(new BigDecimal("900.00"));
+                        std.setEstimatedTransitHours(72);
+                        std.setOperationalRiskScore(new BigDecimal("0.08"));
+                        invoker.merge(std);
+                    }
+
+                    if (eco == null) {
+                        eco = new com.jiat.globaltrade.entity.RouteOption("RT-TEST-TYO-SIN-ECO", "Tokyo, Japan", "Singapore", "Ocean Alliance Line", "OAL-105", "SEA", 168, new BigDecimal("600.00"), new BigDecimal("0.20"), true);
+                        invoker.persist(eco);
+                    }
+
+                    if (exp == null) {
+                        exp = new com.jiat.globaltrade.entity.RouteOption("RT-TEST-TYO-SIN-EXP", "Tokyo, Japan", "Singapore", "Nippon Air Cargo", "NAC-801", "AIR", 18, airDiscount ? new BigDecimal("400.00") : new BigDecimal("3200.00"), airDiscount ? new BigDecimal("0.02") : new BigDecimal("0.05"), true);
+                        invoker.persist(exp);
+                    } else {
+                        exp.setEstimatedCost(airDiscount ? new BigDecimal("400.00") : new BigDecimal("3200.00"));
+                        exp.setOperationalRiskScore(airDiscount ? new BigDecimal("0.02") : new BigDecimal("0.05"));
+                        invoker.merge(exp);
+                    }
+
+                    if (ina == null) {
+                        ina = new com.jiat.globaltrade.entity.RouteOption("RT-TEST-TYO-SIN-INA", "Tokyo, Japan", "Singapore", "Phantom Fastline", "PFL-001", "AIR", 5, new BigDecimal("100.00"), new BigDecimal("0.01"), false);
+                        invoker.persist(ina);
+                    }
+                });
+                out.write("{\"status\":\"SUCCESS\",\"message\":\"Test fixtures seeded successfully.\"}");
+            } catch (Exception e) {
+                resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                out.write(String.format("{\"status\":\"ERROR\",\"message\":\"%s\"}", e.getMessage()));
+            }
+            return;
+        }
+
+        if ("/route-optimizations/run".equals(pathInfo)) {
+            if (!req.isUserInRole(SecurityRoles.ADMIN)) {
+                resp.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                out.write("{\"status\":\"FORBIDDEN\",\"message\":\"Caller is not in role ADMIN\"}");
+                return;
+            }
+            com.jiat.globaltrade.service.RouteOptimizationCoordinatorBean.RouteOptimizationBatchSummary summary =
+                    routeCoordinator.optimizeAllActiveShipments("PROBE_TEST_BATCH", "ADMIN");
+            out.write(String.format(
+                    "{\"status\":\"%s\",\"total\":%d,\"success\":%d,\"failed\":%d,\"skipped\":%d}",
+                    summary.getOverallStatus(), summary.getTotalShipmentsEvaluated(),
+                    summary.getSuccessfulOptimizations(), summary.getFailedOptimizations(), summary.getSkippedShipments()
+            ));
+            return;
+        }
+
+        if (pathInfo != null && pathInfo.startsWith("/route-optimizations/evaluate/")) {
+            if (!req.isUserInRole(SecurityRoles.ADMIN) && !req.isUserInRole(SecurityRoles.LOGISTICS_COORDINATOR)) {
+                resp.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                out.write("{\"status\":\"FORBIDDEN\",\"message\":\"Access denied to evaluate route\"}");
+                return;
+            }
+            String idStr = pathInfo.substring("/route-optimizations/evaluate/".length());
+            try {
+                Long shipmentId = Long.parseLong(idStr);
+                String caller = req.getUserPrincipal() != null ? req.getUserPrincipal().getName() : "TEST_USER";
+                com.jiat.globaltrade.entity.RouteOptimizationRecommendation r =
+                        routeOptimizationService.optimizeShipmentRoute(shipmentId, "PROBE_TEST_EVALUATE", caller);
+                if (r == null) {
+                    resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                    out.write("{\"status\":\"SKIPPED\",\"message\":\"Shipment is not active\"}");
+                } else {
+                    out.write(String.format(
+                            "{\"status\":\"SUCCESS\",\"id\":%d,\"shipmentId\":%d,\"routeCode\":\"%s\",\"score\":%s,\"transitHours\":%d,\"cost\":%s,\"risk\":%s}",
+                            r.getId(), r.getShipment().getId(), r.getSelectedRoute().getRouteCode(),
+                            r.getOptimizationScore(), r.getTransitTimeHours(), r.getEstimatedCost(), r.getRiskScore()
+                    ));
+                }
+            } catch (com.jiat.globaltrade.exception.ResourceNotFoundException e) {
+                resp.setStatus(HttpServletResponse.SC_NOT_FOUND);
+                out.write(String.format("{\"status\":\"NOT_FOUND\",\"message\":\"%s\"}", e.getMessage()));
+            } catch (Exception e) {
+                resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                out.write(String.format("{\"status\":\"ERROR\",\"message\":\"%s\"}", e.getMessage()));
+            }
+            return;
+        }
 
         if ("/monitoring/run".equals(pathInfo)) {
             if (!req.isUserInRole(SecurityRoles.ADMIN)) {
