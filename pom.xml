@@ -52,6 +52,7 @@
     <modules>
         <module>globaltrade-security-provider</module>
         <module>globaltrade-ejb</module>
+        <module>globaltrade-automation-ejb</module>
         <module>globaltrade-web</module>
         <module>globaltrade-ear</module>
     </modules>

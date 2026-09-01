@@ -91,6 +91,19 @@ public class ShipmentServiceBean {
     }
 
     /**
+     * Read-only lookup of all active shipment IDs (not delivered and not cancelled).
+     */
+    @PermitAll
+    @TransactionAttribute(TransactionAttributeType.SUPPORTS)
+    public List<Long> findActiveShipmentIds() {
+        return em.createQuery(
+                "SELECT s.id FROM Shipment s WHERE s.shipmentStatus <> :delivered AND s.shipmentStatus <> :cancelled ORDER BY s.id ASC", Long.class)
+                .setParameter("delivered", ShipmentStatus.DELIVERED)
+                .setParameter("cancelled", ShipmentStatus.CANCELLED)
+                .getResultList();
+    }
+
+    /**
      * Customer-scoped query: returns only shipments assigned to the authenticated customer.
      * The username is securely derived from the SessionContext caller principal.
      */

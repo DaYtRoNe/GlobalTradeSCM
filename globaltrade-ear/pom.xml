@@ -30,6 +30,13 @@
 
         <dependency>
             <groupId>com.jiat.globaltrade</groupId>
+            <artifactId>globaltrade-automation-ejb</artifactId>
+            <version>1.0.0</version>
+            <type>ejb</type>
+        </dependency>
+
+        <dependency>
+            <groupId>com.jiat.globaltrade</groupId>
             <artifactId>globaltrade-web</artifactId>
             <version>1.0.0</version>
             <type>war</type>
@@ -62,6 +69,12 @@
                             <groupId>com.jiat.globaltrade</groupId>
                             <artifactId>globaltrade-ejb</artifactId>
                             <bundleFileName>globaltrade-ejb.jar</bundleFileName>
+                        </ejbModule>
+
+                        <ejbModule>
+                            <groupId>com.jiat.globaltrade</groupId>
+                            <artifactId>globaltrade-automation-ejb</artifactId>
+                            <bundleFileName>globaltrade-automation-ejb.jar</bundleFileName>
                         </ejbModule>
 
                         <webModule>

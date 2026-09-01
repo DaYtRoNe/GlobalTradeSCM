@@ -72,6 +72,12 @@ public class SecurityTestProbeServlet extends HttpServlet {
     private com.jiat.globaltrade.service.RouteOptimizationCoordinatorBean routeCoordinator;
 
     @EJB
+    private com.jiat.globaltrade.service.TradeComplianceServiceBean tradeComplianceService;
+
+    @EJB
+    private com.jiat.globaltrade.integration.service.IntegrationOrchestratorBean integrationOrchestrator;
+
+    @EJB
     private AdminTestInvoker invoker;
 
     @Override
@@ -347,6 +353,132 @@ public class SecurityTestProbeServlet extends HttpServlet {
                 resp.setStatus(HttpServletResponse.SC_FORBIDDEN);
                 out.write(String.format("{\"status\":\"FORBIDDEN\",\"message\":\"%s\"}", e.getMessage()));
             }
+            return;
+        }
+
+        if (pathInfo != null && pathInfo.startsWith("/trade-compliance/shipment/")) {
+            if (!req.isUserInRole(SecurityRoles.ADMIN) && !req.isUserInRole(SecurityRoles.LOGISTICS_COORDINATOR)
+                    && !req.isUserInRole(SecurityRoles.CUSTOMS_AGENT)) {
+                resp.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                out.write("{\"status\":\"FORBIDDEN\",\"message\":\"Access denied to trade compliance\"}");
+                return;
+            }
+            String idStr = pathInfo.substring("/trade-compliance/shipment/".length());
+            try {
+                Long shipmentId = Long.parseLong(idStr);
+                com.jiat.globaltrade.service.TradeComplianceServiceBean.TradeComplianceEvaluationResult res =
+                        tradeComplianceService.evaluateTradeAgreementCompliance(shipmentId);
+                out.write(String.format(
+                        "{\"shipmentId\":%d,\"trackingNumber\":\"%s\",\"origin\":\"%s\",\"destination\":\"%s\",\"compliant\":%b,\"rationale\":\"%s\"}",
+                        res.shipmentId(), res.trackingNumber(), res.origin(), res.destination(), res.compliant(), res.rationale()
+                ));
+            } catch (com.jiat.globaltrade.exception.ResourceNotFoundException e) {
+                resp.setStatus(HttpServletResponse.SC_NOT_FOUND);
+                out.write(String.format("{\"status\":\"NOT_FOUND\",\"message\":\"%s\"}", e.getMessage()));
+            } catch (Exception e) {
+                resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                out.write(String.format("{\"status\":\"ERROR\",\"message\":\"%s\"}", e.getMessage()));
+            }
+            return;
+        }
+
+        if ("/trade-compliance/rules".equals(pathInfo)) {
+            if (!req.isUserInRole(SecurityRoles.ADMIN) && !req.isUserInRole(SecurityRoles.LOGISTICS_COORDINATOR)
+                    && !req.isUserInRole(SecurityRoles.CUSTOMS_AGENT)) {
+                resp.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                out.write("{\"status\":\"FORBIDDEN\",\"message\":\"Access denied to trade compliance rules\"}");
+                return;
+            }
+            List<com.jiat.globaltrade.entity.TradeAgreementRule> rules = tradeComplianceService.findAllAgreementRules();
+            StringBuilder sb = new StringBuilder("[");
+            for (int i = 0; i < rules.size(); i++) {
+                com.jiat.globaltrade.entity.TradeAgreementRule r = rules.get(i);
+                if (i > 0) sb.append(",");
+                sb.append(String.format("{\"code\":\"%s\",\"name\":\"%s\",\"origin\":\"%s\",\"destination\":\"%s\",\"docRequired\":\"%s\"}",
+                        r.getAgreementCode(), r.getAgreementName(), r.getOriginCountry(), r.getDestinationCountry(),
+                        r.getDocumentTypeRequired() != null ? r.getDocumentTypeRequired().name() : ""));
+            }
+            sb.append("]");
+            out.write(sb.toString());
+            return;
+        }
+
+        if ("/integrations/status".equals(pathInfo)) {
+            if (!req.isUserInRole(SecurityRoles.ADMIN) && !req.isUserInRole(SecurityRoles.LOGISTICS_COORDINATOR)) {
+                resp.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                out.write("{\"status\":\"FORBIDDEN\",\"message\":\"Access denied to integration status\"}");
+                return;
+            }
+            com.jiat.globaltrade.integration.service.IntegrationOrchestratorBean.IntegrationSystemStatusSummary s =
+                    integrationOrchestrator.getIntegrationSystemStatus();
+            out.write(String.format(
+                    "{\"overallStatus\":\"%s\",\"adapterEnvironment\":\"%s\",\"activeGateways\":%d,\"degradedGateways\":%d}",
+                    s.overallStatus(), s.adapterEnvironment(), s.activeGateways(), s.degradedGateways()
+            ));
+            return;
+        }
+
+        if (pathInfo != null && pathInfo.startsWith("/integrations/carrier/")) {
+            if (!req.isUserInRole(SecurityRoles.ADMIN) && !req.isUserInRole(SecurityRoles.LOGISTICS_COORDINATOR)
+                    && !req.isUserInRole(SecurityRoles.CUSTOMER)) {
+                resp.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                out.write("{\"status\":\"FORBIDDEN\",\"message\":\"Access denied to carrier integration\"}");
+                return;
+            }
+            String trk = pathInfo.substring("/integrations/carrier/".length());
+            com.jiat.globaltrade.integration.model.CarrierTrackingPayload p = integrationOrchestrator.getCarrierTracking(trk);
+            out.write(String.format(
+                    "{\"trackingNumber\":\"%s\",\"carrier\":\"%s\",\"status\":\"%s\",\"checkpoint\":\"%s\",\"integrationMode\":\"%s\"}",
+                    p.trackingNumber(), p.carrierName(), p.externalStatusCode(), p.currentCheckpoint(), p.integrationMode()
+            ));
+            return;
+        }
+
+        if (pathInfo != null && pathInfo.startsWith("/integrations/customs/")) {
+            if (!req.isUserInRole(SecurityRoles.ADMIN) && !req.isUserInRole(SecurityRoles.LOGISTICS_COORDINATOR)
+                    && !req.isUserInRole(SecurityRoles.CUSTOMS_AGENT)) {
+                resp.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                out.write("{\"status\":\"FORBIDDEN\",\"message\":\"Access denied to customs integration\"}");
+                return;
+            }
+            String doc = pathInfo.substring("/integrations/customs/".length());
+            com.jiat.globaltrade.integration.model.CustomsEdiPayload p = integrationOrchestrator.getCustomsClearance(doc);
+            out.write(String.format(
+                    "{\"documentNumber\":\"%s\",\"authority\":\"%s\",\"status\":\"%s\",\"entryNumber\":\"%s\",\"integrationMode\":\"%s\"}",
+                    p.documentNumber(), p.customsAuthority(), p.clearanceStatusCode(), p.entryNumber(), p.integrationMode()
+            ));
+            return;
+        }
+
+        if (pathInfo != null && pathInfo.startsWith("/integrations/warehouse/")) {
+            if (!req.isUserInRole(SecurityRoles.ADMIN) && !req.isUserInRole(SecurityRoles.LOGISTICS_COORDINATOR)
+                    && !req.isUserInRole(SecurityRoles.WAREHOUSE_MANAGER)) {
+                resp.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                out.write("{\"status\":\"FORBIDDEN\",\"message\":\"Access denied to warehouse integration\"}");
+                return;
+            }
+            String sku = pathInfo.substring("/integrations/warehouse/".length());
+            com.jiat.globaltrade.integration.model.WarehouseStockPayload p = integrationOrchestrator.getWarehouseStock(sku);
+            out.write(String.format(
+                    "{\"sku\":\"%s\",\"warehouse\":\"%s\",\"bin\":\"%s\",\"onHand\":%d,\"atp\":%d,\"integrationMode\":\"%s\"}",
+                    p.sku(), p.warehouseCode(), p.binLocation(), p.physicalOnHand(), p.availableToPromise(), p.integrationMode()
+            ));
+            return;
+        }
+
+        if (pathInfo != null && pathInfo.startsWith("/integrations/supplier/")) {
+            if (!req.isUserInRole(SecurityRoles.ADMIN) && !req.isUserInRole(SecurityRoles.LOGISTICS_COORDINATOR)
+                    && !req.isUserInRole(SecurityRoles.VENDOR_REPRESENTATIVE)) {
+                resp.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                out.write("{\"status\":\"FORBIDDEN\",\"message\":\"Access denied to supplier portal integration\"}");
+                return;
+            }
+            String vendorCode = pathInfo.substring("/integrations/supplier/".length());
+            com.jiat.globaltrade.integration.model.SupplierCatalogPayload p = integrationOrchestrator.getSupplierPortalInfo(vendorCode);
+            out.write(String.format(
+                    "{\"vendorCode\":\"%s\",\"company\":\"%s\",\"status\":\"%s\",\"leadTimeDays\":%d,\"integrationMode\":\"%s\"}",
+                    p.vendorCode(), p.companyName(), p.supplierStatus(), p.leadTimeDays(), p.integrationMode()
+            ));
             return;
         }
 

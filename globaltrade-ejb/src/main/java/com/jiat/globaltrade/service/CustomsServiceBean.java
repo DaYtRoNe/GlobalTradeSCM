@@ -80,6 +80,19 @@ public class CustomsServiceBean {
     }
 
     /**
+     * Read-only lookup of all pending customs document IDs (not approved and not rejected).
+     */
+    @PermitAll
+    @TransactionAttribute(TransactionAttributeType.SUPPORTS)
+    public List<Long> findPendingDocumentIds() {
+        return em.createQuery(
+                "SELECT d.id FROM CustomsDocument d WHERE d.status <> :approved AND d.status <> :rejected ORDER BY d.id ASC", Long.class)
+                .setParameter("approved", CustomsDocumentStatus.APPROVED)
+                .setParameter("rejected", CustomsDocumentStatus.REJECTED)
+                .getResultList();
+    }
+
+    /**
      * Read-only query for all documents associated with a shipment.
      */
     @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.CUSTOMS_AGENT, SecurityRoles.LOGISTICS_COORDINATOR})

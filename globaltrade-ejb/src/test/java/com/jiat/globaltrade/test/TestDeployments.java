@@ -138,6 +138,12 @@ public final class TestDeployments {
                         <url-pattern>/security-test/route-options</url-pattern>
                         <url-pattern>/security-test/route-optimizations/*</url-pattern>
                         <url-pattern>/security-test/route-optimizations</url-pattern>
+                        <url-pattern>/security-test/trade-compliance/*</url-pattern>
+                        <url-pattern>/security-test/trade-compliance</url-pattern>
+                        <url-pattern>/security-test/integrations/*</url-pattern>
+                        <url-pattern>/security-test/integrations</url-pattern>
+                        <url-pattern>/security-test/automation/*</url-pattern>
+                        <url-pattern>/security-test/automation</url-pattern>
                     </web-resource-collection>
                     <auth-constraint>
                         <role-name>ADMIN</role-name>
@@ -285,8 +291,15 @@ public final class TestDeployments {
                 .addPackage("com.jiat.globaltrade.interceptor")
                 // Core Services
                 .addPackage("com.jiat.globaltrade.service")
+                // External System Gateways, Adapters, and Models
+                .addPackage("com.jiat.globaltrade.integration.gateway")
+                .addPackage("com.jiat.globaltrade.integration.adapter")
+                .addPackage("com.jiat.globaltrade.integration.model")
+                .addPackage("com.jiat.globaltrade.integration.service")
                 // Declarative and Programmatic Timers
                 .addPackage("com.jiat.globaltrade.timer")
+                // Supply Chain Automation Module
+                .addPackage("com.jiat.globaltrade.automation")
                 // Security definitions and DTOs
                 .addPackage("com.jiat.globaltrade.security")
                 .addPackage("com.jiat.globaltrade.security.dto")

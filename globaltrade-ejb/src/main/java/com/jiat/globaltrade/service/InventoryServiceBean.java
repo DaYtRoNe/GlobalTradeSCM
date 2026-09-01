@@ -68,6 +68,16 @@ public class InventoryServiceBean {
     }
 
     /**
+     * Read-only lookup of all inventory item IDs.
+     */
+    @PermitAll
+    @TransactionAttribute(TransactionAttributeType.SUPPORTS)
+    public List<Long> findAllInventoryItemIds() {
+        return em.createQuery("SELECT i.id FROM InventoryItem i ORDER BY i.id ASC", Long.class)
+                .getResultList();
+    }
+
+    /**
      * Increases inventory quantity (e.g. stock replenishment or return).
      * REQUIRED joins or creates a transaction.
      */

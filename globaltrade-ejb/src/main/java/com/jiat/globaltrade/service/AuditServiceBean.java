@@ -80,6 +80,32 @@ public class AuditServiceBean {
     }
 
     /**
+     * Checks whether an audit log entry exists for the given entity, action, and timestamp cutoff.
+     * SUPPORTS allows participation in an existing transaction if present, or executes without one.
+     */
+    @PermitAll
+    @TransactionAttribute(TransactionAttributeType.SUPPORTS)
+    public boolean hasRecentAction(String entityType, Long entityId, String action, LocalDateTime since) {
+        if (entityType == null || entityId == null || action == null || since == null) {
+            return false;
+        }
+        try {
+            Long count = em.createQuery(
+                    "SELECT COUNT(a) FROM AuditLog a WHERE a.entityType = :entityType AND a.entityId = :entityId AND a.action = :action AND a.timestamp >= :since", Long.class)
+                    .setParameter("entityType", entityType)
+                    .setParameter("entityId", entityId)
+                    .setParameter("action", action)
+                    .setParameter("since", since)
+                    .getSingleResult();
+            return count != null && count > 0;
+        } catch (Exception e) {
+            LOGGER.log(Level.WARNING, "[AuditServiceBean] Error querying recent audit action for {0}#{1}: {2}",
+                    new Object[]{entityType, entityId, e.getMessage()});
+            return false;
+        }
+    }
+
+    /**
      * Returns the total count of audit logs recorded.
      */
     @PermitAll

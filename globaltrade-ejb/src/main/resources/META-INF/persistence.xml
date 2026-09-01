@@ -13,6 +13,10 @@
         <class>com.jiat.globaltrade.entity.Shipment</class>
         <class>com.jiat.globaltrade.entity.CustomsDocument</class>
         <class>com.jiat.globaltrade.entity.AuditLog</class>
+        <class>com.jiat.globaltrade.entity.SupplyChainAlert</class>
+        <class>com.jiat.globaltrade.entity.RouteOption</class>
+        <class>com.jiat.globaltrade.entity.RouteOptimizationRecommendation</class>
+        <class>com.jiat.globaltrade.entity.TradeAgreementRule</class>
 
         <exclude-unlisted-classes>false</exclude-unlisted-classes>
 
