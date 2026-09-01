@@ -55,6 +55,15 @@ public class SecurityTestProbeServlet extends HttpServlet {
     @EJB
     private AuditServiceBean auditService;
 
+    @EJB
+    private com.jiat.globaltrade.service.SupplyChainAlertServiceBean alertService;
+
+    @EJB
+    private com.jiat.globaltrade.service.SupplyChainMonitoringServiceBean monitoringService;
+
+    @EJB
+    private com.jiat.globaltrade.service.SupplyChainMonitoringWorkerBean workerBean;
+
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         String pathInfo = req.getPathInfo();
@@ -228,6 +237,27 @@ public class SecurityTestProbeServlet extends HttpServlet {
             return;
         }
 
+        if ("/alerts".equals(pathInfo)) {
+            try {
+                List<com.jiat.globaltrade.entity.SupplyChainAlert> alerts = alertService.findAlertsForCaller(null);
+                StringBuilder sb = new StringBuilder("[");
+                for (int i = 0; i < alerts.size(); i++) {
+                    com.jiat.globaltrade.entity.SupplyChainAlert a = alerts.get(i);
+                    sb.append(String.format(
+                            "{\"id\":%d,\"alertKey\":\"%s\",\"alertType\":\"%s\",\"alertStatus\":\"%s\",\"entityType\":\"%s\",\"entityId\":%d,\"message\":\"%s\"}",
+                            a.getId(), a.getAlertKey(), a.getAlertType(), a.getAlertStatus(), a.getEntityType(), a.getEntityId(), a.getMessage().replace("\"", "\\\"")
+                    ));
+                    if (i < alerts.size() - 1) sb.append(",");
+                }
+                sb.append("]");
+                out.write(sb.toString());
+            } catch (Exception e) {
+                resp.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                out.write(String.format("{\"status\":\"FORBIDDEN\",\"message\":\"%s\"}", e.getMessage()));
+            }
+            return;
+        }
+
         resp.setStatus(HttpServletResponse.SC_NOT_FOUND);
         out.write("{\"status\":\"NOT_FOUND\",\"message\":\"Unknown probe endpoint\"}");
     }
@@ -242,6 +272,38 @@ public class SecurityTestProbeServlet extends HttpServlet {
         resp.setContentType("application/json");
         resp.setCharacterEncoding("UTF-8");
         PrintWriter out = resp.getWriter();
+
+        if ("/monitoring/run".equals(pathInfo)) {
+            if (!req.isUserInRole(SecurityRoles.ADMIN)) {
+                resp.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                out.write("{\"status\":\"FORBIDDEN\",\"message\":\"Caller is not in role ADMIN\"}");
+                return;
+            }
+            com.jiat.globaltrade.service.SupplyChainMonitoringServiceBean.SupplyChainEvaluationResult result =
+                    monitoringService.evaluateSupplyChain("PROBE_TEST_TRIGGER");
+            out.write(String.format(
+                    "{\"status\":\"%s\",\"successfulCategories\":%d,\"failedCategories\":%d,\"activeAlerts\":%d,\"resolvedAlerts\":%d}",
+                    result.getOverallStatus(), result.getSuccessfulCategories(), result.getFailedCategories(),
+                    result.getTotalActiveAlertsDetected(), result.getTotalAlertsResolved()
+            ));
+            return;
+        }
+
+        if (pathInfo != null && pathInfo.startsWith("/alerts/acknowledge/")) {
+            String idStr = pathInfo.substring("/alerts/acknowledge/".length());
+            try {
+                Long alertId = Long.parseLong(idStr);
+                com.jiat.globaltrade.entity.SupplyChainAlert a = alertService.acknowledgeAlert(alertId);
+                out.write(String.format(
+                        "{\"status\":\"SUCCESS\",\"id\":%d,\"alertKey\":\"%s\",\"alertStatus\":\"%s\",\"acknowledgedBy\":\"%s\"}",
+                        a.getId(), a.getAlertKey(), a.getAlertStatus(), a.getAcknowledgedBy()
+                ));
+            } catch (Exception e) {
+                resp.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                out.write(String.format("{\"status\":\"FORBIDDEN\",\"message\":\"%s\"}", e.getMessage()));
+            }
+            return;
+        }
 
         if ("/ui-login".equals(pathInfo)) {
             StringBuilder sb = new StringBuilder();

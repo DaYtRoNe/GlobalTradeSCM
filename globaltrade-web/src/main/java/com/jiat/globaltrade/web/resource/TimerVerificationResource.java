@@ -1,9 +1,14 @@
 package com.jiat.globaltrade.web.resource;
 
+import com.jiat.globaltrade.security.SecurityRoles;
 import com.jiat.globaltrade.service.AuditServiceBean;
+import com.jiat.globaltrade.service.SupplyChainMonitoringServiceBean;
+import com.jiat.globaltrade.service.SupplyChainMonitoringWorkerBean;
 import com.jiat.globaltrade.timer.ShipmentAlertTimerBean;
 import com.jiat.globaltrade.timer.SupplyChainMonitoringTimerBean;
 import com.jiat.globaltrade.timer.dto.AlertTimerInfo;
+import jakarta.annotation.security.DeclareRoles;
+import jakarta.annotation.security.RolesAllowed;
 import jakarta.ejb.EJB;
 import jakarta.ejb.Stateless;
 import jakarta.json.Json;
@@ -23,11 +28,20 @@ import jakarta.ws.rs.core.Response;
 import java.util.List;
 
 /**
- * Minimal verification resource for testing Phase 3 EJB Timer Services (Declarative & Programmatic).
+ * Diagnostic verification resource for testing EJB Timer Services (Declarative & Programmatic).
+ * Base Path: /api/timers
  */
 @Stateless
 @Path("/timers")
 @Produces(MediaType.APPLICATION_JSON)
+@DeclareRoles({
+        SecurityRoles.ADMIN,
+        SecurityRoles.LOGISTICS_COORDINATOR,
+        SecurityRoles.CUSTOMS_AGENT,
+        SecurityRoles.WAREHOUSE_MANAGER,
+        SecurityRoles.VENDOR_REPRESENTATIVE,
+        SecurityRoles.CUSTOMER
+})
 public class TimerVerificationResource {
 
     @EJB
@@ -45,6 +59,7 @@ public class TimerVerificationResource {
      */
     @GET
     @Path("/status")
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.LOGISTICS_COORDINATOR})
     public Response getTimerStatus() {
         List<AlertTimerInfo> activeTimers = alertTimerBean.getActiveTimers();
         long auditCount = auditService.getAuditLogCount();
@@ -66,9 +81,11 @@ public class TimerVerificationResource {
                 .add("monitoringCycleCount", monitoringTimerBean.getMonitoringCycleCount())
                 .add("lastMonitoringTime", monitoringTimerBean.getLastMonitoringTime() != null ?
                         monitoringTimerBean.getLastMonitoringTime().toString() : "Not yet executed")
-                .add("lastDetectedLowStockCount", monitoringTimerBean.getLastDetectedLowStockCount())
-                .add("lastDetectedDelayedShipmentCount", monitoringTimerBean.getLastDetectedDelayedShipmentCount())
-                .add("lastDetectedUrgentCustomsCount", monitoringTimerBean.getLastDetectedUrgentCustomsCount())
+                .add("lastOverallStatus", monitoringTimerBean.getLastOverallStatus())
+                .add("lastSuccessfulCategories", monitoringTimerBean.getLastSuccessfulCategories())
+                .add("lastFailedCategories", monitoringTimerBean.getLastFailedCategories())
+                .add("lastActiveAlertsCount", monitoringTimerBean.getLastActiveAlertsCount())
+                .add("lastResolvedAlertsCount", monitoringTimerBean.getLastResolvedAlertsCount())
                 .add("activeProgrammaticTimerCount", activeTimers.size())
                 .add("activeProgrammaticTimers", timersArray)
                 .add("totalAuditLogs", auditCount);
@@ -78,22 +95,37 @@ public class TimerVerificationResource {
 
     /**
      * Manually invokes the monitoring cycle logic without waiting for the 5-minute @Schedule interval.
+     * Restricted strictly to ADMIN users.
      * POST /api/timers/run-monitoring
      */
     @POST
     @Path("/run-monitoring")
+    @RolesAllowed(SecurityRoles.ADMIN)
     public Response runMonitoringManually() {
-        SupplyChainMonitoringTimerBean.MonitoringSummary summary =
+        SupplyChainMonitoringServiceBean.SupplyChainEvaluationResult summary =
                 monitoringTimerBean.runMonitoringCycle("MANUAL_REST_TRIGGER");
 
+        JsonArrayBuilder categoriesArray = Json.createArrayBuilder();
+        for (SupplyChainMonitoringWorkerBean.CategoryResult cr : summary.getCategoryResults()) {
+            categoriesArray.add(Json.createObjectBuilder()
+                    .add("category", cr.getCategoryName())
+                    .add("success", cr.isSuccess())
+                    .add("errorMessage", cr.getErrorMessage() != null ? cr.getErrorMessage() : "")
+                    .add("entitiesEvaluated", cr.getEntitiesEvaluated())
+                    .add("activeAlertsDetected", cr.getActiveAlertsDetected())
+                    .add("alertsResolved", cr.getAlertsResolved()));
+        }
+
         JsonObject response = Json.createObjectBuilder()
-                .add("status", "SUCCESS")
+                .add("status", summary.getOverallStatus())
                 .add("triggerSource", summary.getTriggerSource())
-                .add("cycleNumber", summary.getCycleNumber())
                 .add("executionTime", summary.getExecutionTime().toString())
-                .add("lowStockDetected", summary.getLowStockCount())
-                .add("delayedShipmentsDetected", summary.getDelayedShipmentsCount())
-                .add("urgentCustomsDocsDetected", summary.getUrgentCustomsDocsCount())
+                .add("successfulCategories", summary.getSuccessfulCategories())
+                .add("failedCategories", summary.getFailedCategories())
+                .add("totalEntitiesEvaluated", summary.getTotalEntitiesEvaluated())
+                .add("totalActiveAlertsDetected", summary.getTotalActiveAlertsDetected())
+                .add("totalAlertsResolved", summary.getTotalAlertsResolved())
+                .add("categories", categoriesArray)
                 .build();
 
         return Response.ok(response).build();
@@ -105,6 +137,7 @@ public class TimerVerificationResource {
      */
     @POST
     @Path("/shipment-alert/{shipmentId}")
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.LOGISTICS_COORDINATOR})
     public Response scheduleShipmentAlert(
             @PathParam("shipmentId") Long shipmentId,
             @QueryParam("delaySeconds") @DefaultValue("5") long delaySeconds,
@@ -142,6 +175,7 @@ public class TimerVerificationResource {
      */
     @DELETE
     @Path("/shipment-alert/{shipmentId}")
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.LOGISTICS_COORDINATOR})
     public Response cancelShipmentAlert(@PathParam("shipmentId") Long shipmentId) {
         boolean cancelled = alertTimerBean.cancelShipmentAlert(shipmentId);
 
@@ -160,6 +194,7 @@ public class TimerVerificationResource {
      */
     @POST
     @Path("/customs-reminder/{documentId}")
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.CUSTOMS_AGENT})
     public Response scheduleCustomsReminder(
             @PathParam("documentId") Long documentId,
             @QueryParam("delaySeconds") @DefaultValue("5") long delaySeconds,
@@ -197,6 +232,7 @@ public class TimerVerificationResource {
      */
     @DELETE
     @Path("/customs-reminder/{documentId}")
+    @RolesAllowed({SecurityRoles.ADMIN, SecurityRoles.CUSTOMS_AGENT})
     public Response cancelCustomsReminder(@PathParam("documentId") Long documentId) {
         boolean cancelled = alertTimerBean.cancelCustomsReminder(documentId);
 

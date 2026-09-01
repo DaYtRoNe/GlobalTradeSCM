@@ -166,6 +166,38 @@
         </auth-constraint>
     </security-constraint>
 
+    <security-constraint>
+        <display-name>Production Supply Chain Alerts API Constraint</display-name>
+        <web-resource-collection>
+            <web-resource-name>Protected Alerts API</web-resource-name>
+            <url-pattern>/api/alerts/*</url-pattern>
+        </web-resource-collection>
+        <auth-constraint>
+            <role-name>ADMIN</role-name>
+            <role-name>LOGISTICS_COORDINATOR</role-name>
+            <role-name>CUSTOMS_AGENT</role-name>
+            <role-name>WAREHOUSE_MANAGER</role-name>
+            <role-name>VENDOR_REPRESENTATIVE</role-name>
+            <role-name>CUSTOMER</role-name>
+        </auth-constraint>
+    </security-constraint>
+
+    <security-constraint>
+        <display-name>Timer Verification Diagnostic Constraint</display-name>
+        <web-resource-collection>
+            <web-resource-name>Protected Timer Verification API</web-resource-name>
+            <url-pattern>/api/timers/*</url-pattern>
+        </web-resource-collection>
+        <auth-constraint>
+            <role-name>ADMIN</role-name>
+            <role-name>LOGISTICS_COORDINATOR</role-name>
+            <role-name>CUSTOMS_AGENT</role-name>
+            <role-name>WAREHOUSE_MANAGER</role-name>
+            <role-name>VENDOR_REPRESENTATIVE</role-name>
+            <role-name>CUSTOMER</role-name>
+        </auth-constraint>
+    </security-constraint>
+
     <!-- ======================================================================= -->
     <!-- Authentication Mechanism: HTTP Basic with GlobalTradeCustomRealm        -->
     <!-- ======================================================================= -->

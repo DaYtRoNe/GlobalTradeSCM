@@ -125,6 +125,26 @@ public final class TestDeployments {
                     </auth-constraint>
                 </security-constraint>
 
+                <!-- Constraint 8: Alerts & Monitoring Probe -->
+                <security-constraint>
+                    <display-name>Alerts and Monitoring Probe Protection</display-name>
+                    <web-resource-collection>
+                        <web-resource-name>Alerts and Monitoring Endpoint</web-resource-name>
+                        <url-pattern>/security-test/alerts/*</url-pattern>
+                        <url-pattern>/security-test/alerts</url-pattern>
+                        <url-pattern>/security-test/monitoring/*</url-pattern>
+                        <url-pattern>/security-test/monitoring</url-pattern>
+                    </web-resource-collection>
+                    <auth-constraint>
+                        <role-name>ADMIN</role-name>
+                        <role-name>LOGISTICS_COORDINATOR</role-name>
+                        <role-name>CUSTOMS_AGENT</role-name>
+                        <role-name>WAREHOUSE_MANAGER</role-name>
+                        <role-name>VENDOR_REPRESENTATIVE</role-name>
+                        <role-name>CUSTOMER</role-name>
+                    </auth-constraint>
+                </security-constraint>
+
                 <!-- Authentication Mechanism: HTTP Basic with GlobalTradeCustomRealm -->
                 <login-config>
                     <auth-method>BASIC</auth-method>
